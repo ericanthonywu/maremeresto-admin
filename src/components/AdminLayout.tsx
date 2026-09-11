@@ -67,7 +67,7 @@ export const AdminLayout: React.FC = () => {
             <i className={`fa-solid ${isOwner ? 'fa-crown' : 'fa-mug-hot'}`}></i>
           </div>
           <div className="min-w-0">
-            <span className="font-serif font-bold text-base block text-white leading-none">Cafe Olga</span>
+            <span className="font-serif font-bold text-base block text-white leading-none">Mareme Resto</span>
             <span className="text-[11px] text-amber-400 font-medium">
               {isOwner ? 'HQ Portal' : 'Outlet Portal'}
             </span>

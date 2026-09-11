@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react'
 import { adminApi, errorMessage, formatRupiah } from '../api/client'
 import { useAuth } from '../context/AuthContext'
 import type { BranchSettings, DayHours } from '../types'
+import { BranchProfileForm } from '../components/BranchProfileForm'
 
 const DEFAULT_HOURS: DayHours = { open: '08:00', close: '22:00' }
 
@@ -203,6 +204,8 @@ export const SettingsPage: React.FC = () => {
           </button>
         </div>
       )}
+
+      {activeBranch && <BranchProfileForm branch={activeBranch} />}
 
       {/* Master open/closed switch */}
       <div className="bg-white rounded-3xl p-6 border border-stone-200 shadow-sm flex items-center justify-between gap-4">

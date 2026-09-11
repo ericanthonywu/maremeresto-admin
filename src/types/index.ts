@@ -33,6 +33,14 @@ export interface Category {
   sort_order: number
 }
 
+export interface GeocodeResult {
+  label: string
+  full_address: string
+  latitude: number
+  longitude: number
+  postcode?: string
+}
+
 export interface OrderItem {
   id: string
   order_id: string

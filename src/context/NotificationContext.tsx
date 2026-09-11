@@ -2,7 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import type { Order } from '../types'
 
 const SOUND_PREF_KEY = 'olga_admin_sound_enabled'
-const BASE_TITLE = 'Cafe Olga Admin'
+const BASE_TITLE = 'Mareme Resto Admin'
 
 export interface NewOrderNotice {
   id: string

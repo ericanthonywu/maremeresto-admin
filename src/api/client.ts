@@ -4,6 +4,7 @@ import type {
   BranchSettings,
   Category,
   DashboardStats,
+  GeocodeResult,
   DriverInput,
   MenuItem,
   MenuItemInput,
@@ -92,6 +93,22 @@ export const adminApi = {
   toggleBranchStatus: async (branchId: string, isOpen: boolean) => {
     const res = await api.put(`/admin/branches/${branchId}/status`, { is_open: isOpen })
     return res.data.data
+  },
+
+  updateBranchProfile: async (
+    branchId: string,
+    profile: { name: string; address: string; phone: string; latitude: number; longitude: number }
+  ): Promise<Branch> => {
+    const res = await api.put(`/admin/branches/${branchId}/profile`, profile)
+    return res.data.data
+  },
+
+  // Public geocoder proxy (same endpoint the customer app uses), so an
+  // operator can pick an address for a branch instead of typing raw
+  // coordinates by hand.
+  searchAddress: async (query: string, signal?: AbortSignal): Promise<GeocodeResult[]> => {
+    const res = await api.get('/geocode/search', { params: { q: query }, signal })
+    return res.data.data ?? []
   },
 
   // ---- Orders -----------------------------------------------------------

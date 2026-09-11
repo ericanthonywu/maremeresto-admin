@@ -21,6 +21,8 @@ interface AuthContextType {
   activeBranchId: string | null
   setActiveBranchId: (id: string) => void
   activeBranch: Branch | null
+  /** Re-fetches branches after an admin edits an outlet's profile (name/address/phone). */
+  refreshBranches: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -73,35 +75,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [])
 
   // Load the outlets this account can act on.
-  useEffect(() => {
+  const loadBranches = useCallback(async () => {
     if (!user) {
       setBranches([])
       return
     }
+    try {
+      const all = await adminApi.getBranches()
+      const permitted = user.role === 'owner' ? all : all.filter((b) => b.id === user.branch_id)
+      setBranches(permitted)
 
-    let cancelled = false
-    adminApi
-      .getBranches()
-      .then((all) => {
-        if (cancelled) return
-        const permitted = user.role === 'owner' ? all : all.filter((b) => b.id === user.branch_id)
-        setBranches(permitted)
-
+      setActiveBranchIdState((prev) => {
+        if (prev && permitted.some((b) => b.id === prev)) return prev
         const remembered = localStorage.getItem(ACTIVE_BRANCH_KEY)
-        const initial =
-          user.role === 'owner'
-            ? (permitted.find((b) => b.id === remembered)?.id ?? permitted[0]?.id ?? null)
-            : (user.branch_id ?? null)
-        setActiveBranchIdState(initial)
+        return user.role === 'owner'
+          ? (permitted.find((b) => b.id === remembered)?.id ?? permitted[0]?.id ?? null)
+          : (user.branch_id ?? null)
       })
-      .catch(() => {
-        if (!cancelled) setBranches([])
-      })
-
-    return () => {
-      cancelled = true
+    } catch {
+      setBranches([])
     }
   }, [user])
+
+  useEffect(() => {
+    void loadBranches()
+  }, [loadBranches])
 
   const login = useCallback(async (identifier: string, password: string) => {
     const res = await adminApi.login(identifier, password)
@@ -142,8 +140,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       activeBranchId,
       setActiveBranchId,
       activeBranch,
+      refreshBranches: loadBranches,
     }),
-    [user, initializing, login, logout, branches, activeBranchId, setActiveBranchId, activeBranch]
+    [user, initializing, login, logout, branches, activeBranchId, setActiveBranchId, activeBranch, loadBranches]
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
