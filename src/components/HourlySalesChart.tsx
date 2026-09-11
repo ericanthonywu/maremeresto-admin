@@ -1,82 +1,106 @@
 import React from 'react'
 import {
-  ResponsiveContainer,
-  ComposedChart,
   Bar,
+  CartesianGrid,
+  ComposedChart,
   Line,
+  ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
-  Tooltip,
-  CartesianGrid,
 } from 'recharts'
+import type { HourlySalesPoint } from '../types'
 
-interface HourlyData {
-  hour: string
-  orders: number
-  revenue: number
+interface HourlySalesChartProps {
+  /** Real per-hour figures from the API. There is no built-in sample data. */
+  data: HourlySalesPoint[]
+  loading?: boolean
 }
 
-const DEFAULT_HOURLY: HourlyData[] = [
-  { hour: '08:00', orders: 12, revenue: 380000 },
-  { hour: '09:00', orders: 24, revenue: 760000 },
-  { hour: '10:00', orders: 19, revenue: 610000 },
-  { hour: '11:00', orders: 35, revenue: 1120000 },
-  { hour: '12:00', orders: 48, revenue: 1540000 },
-  { hour: '13:00', orders: 42, revenue: 1350000 },
-  { hour: '14:00', orders: 28, revenue: 890000 },
-  { hour: '15:00', orders: 31, revenue: 990000 },
-  { hour: '16:00', orders: 38, revenue: 1210000 },
-  { hour: '17:00', orders: 45, revenue: 1440000 },
-  { hour: '18:00', orders: 29, revenue: 920000 },
-  { hour: '19:00', orders: 20, revenue: 640000 },
-]
+const compactRupiah = (value: number): string => {
+  if (value >= 1_000_000) return `Rp ${(value / 1_000_000).toFixed(1)}jt`
+  if (value >= 1_000) return `Rp ${Math.round(value / 1_000)}rb`
+  return `Rp ${value}`
+}
 
-export const HourlySalesChart: React.FC<{ data?: HourlyData[] }> = ({ data = DEFAULT_HOURLY }) => {
-  const formatRupiah = (val: number) =>
-    `Rp ${(val / 1000).toFixed(0)}k`
+export const HourlySalesChart: React.FC<HourlySalesChartProps> = ({ data, loading }) => {
+  if (loading) {
+    return (
+      <div className="w-full h-72 flex items-center justify-center">
+        <i className="fa-solid fa-circle-notch fa-spin text-2xl text-brand-600" aria-hidden="true"></i>
+        <span className="sr-only">Memuat grafik</span>
+      </div>
+    )
+  }
+
+  const hasActivity = data.some((point) => point.orders > 0)
+
+  if (!hasActivity) {
+    // Be explicit that there is genuinely nothing yet, rather than drawing an
+    // invented curve. The previous chart always rendered the same 12 fake bars.
+    return (
+      <div className="w-full h-72 flex flex-col items-center justify-center text-center gap-2 bg-stone-50/60 rounded-2xl border border-dashed border-stone-200">
+        <i className="fa-solid fa-chart-column text-3xl text-stone-300" aria-hidden="true"></i>
+        <h4 className="font-bold text-stone-700 text-sm">Belum ada penjualan hari ini</h4>
+        <p className="text-xs text-stone-400 max-w-xs">
+          Grafik akan terisi otomatis begitu pesanan pertama hari ini masuk.
+        </p>
+      </div>
+    )
+  }
 
   return (
     <div className="w-full h-72">
       <ResponsiveContainer width="100%" height="100%">
-        <ComposedChart data={data} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
-          <XAxis dataKey="hour" stroke="#9ca3af" fontSize={11} tickLine={false} />
+        <ComposedChart data={data} margin={{ top: 10, right: 6, left: 0, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#e7e5e4" vertical={false} />
+          <XAxis dataKey="hour" stroke="#a8a29e" fontSize={11} tickLine={false} axisLine={false} />
           <YAxis
-            yAxisId="left"
-            stroke="#9ca3af"
+            yAxisId="orders"
+            stroke="#a8a29e"
             fontSize={11}
             tickLine={false}
-            tickFormatter={(v) => `${v} pesanan`}
+            axisLine={false}
+            allowDecimals={false}
+            width={34}
           />
           <YAxis
-            yAxisId="right"
+            yAxisId="revenue"
             orientation="right"
-            stroke="#9ca3af"
+            stroke="#a8a29e"
             fontSize={11}
             tickLine={false}
-            tickFormatter={formatRupiah}
+            axisLine={false}
+            tickFormatter={compactRupiah}
+            width={60}
           />
           <Tooltip
-            formatter={(value: any, name: any) => {
-              if (name === 'orders') return [`${value} pesanan`, 'Pesanan']
-              return [`Rp ${Number(value).toLocaleString('id-ID')}`, 'Omset']
-            }}
+            formatter={(value, name) =>
+              name === 'orders'
+                ? [`${Number(value ?? 0)} pesanan`, 'Pesanan']
+                : [`Rp ${Number(value ?? 0).toLocaleString('id-ID')}`, 'Omset']
+            }
+            labelFormatter={(label) => `Jam ${label}`}
             contentStyle={{
               backgroundColor: '#1c1917',
-              borderRadius: '16px',
+              borderRadius: '14px',
               border: 'none',
               color: '#fff',
               fontSize: '12px',
+              padding: '8px 12px',
             }}
+            itemStyle={{ color: '#fff' }}
+            labelStyle={{ color: '#d6d3d1', fontWeight: 700, marginBottom: 4 }}
           />
-          <Bar yAxisId="left" dataKey="orders" fill="#c87028" radius={[8, 8, 0, 0]} barSize={20} />
+          <Bar yAxisId="orders" dataKey="orders" fill="#c87028" radius={[6, 6, 0, 0]} maxBarSize={24} />
           <Line
-            yAxisId="right"
+            yAxisId="revenue"
             type="monotone"
             dataKey="revenue"
             stroke="#10b981"
-            strokeWidth={3}
-            dot={{ r: 4, fill: '#10b981' }}
+            strokeWidth={2.5}
+            dot={{ r: 3, fill: '#10b981' }}
+            activeDot={{ r: 5 }}
           />
         </ComposedChart>
       </ResponsiveContainer>

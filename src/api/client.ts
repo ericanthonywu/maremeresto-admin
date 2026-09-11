@@ -1,28 +1,75 @@
 import axios from 'axios'
-import type { User, Branch, Order, MenuItem, BranchSettings } from '../types'
+import type {
+  Branch,
+  BranchSettings,
+  Category,
+  DashboardStats,
+  DriverInput,
+  MenuItem,
+  MenuItemInput,
+  Order,
+  User,
+} from '../types'
+
+export const TOKEN_KEY = 'olga_admin_token'
+export const USER_KEY = 'olga_admin_user'
 
 export const api = axios.create({
   baseURL: '/api/v1',
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  headers: { 'Content-Type': 'application/json' },
+  timeout: 20000,
 })
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('olga_admin_token')
+  const token = localStorage.getItem(TOKEN_KEY)
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
   return config
 })
 
+// A rejected token means the 12-hour staff session expired. Drop it and send
+// the operator back to the login screen rather than leaving them on a page
+// whose every request silently fails.
+api.interceptors.response.use(
+  (res) => res,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem(TOKEN_KEY)
+      localStorage.removeItem(USER_KEY)
+      if (!window.location.pathname.startsWith('/login')) {
+        window.location.assign('/login?expired=1')
+      }
+    }
+    return Promise.reject(error)
+  }
+)
+
+export function errorMessage(err: unknown, fallback = 'Terjadi kesalahan. Silakan coba lagi.'): string {
+  if (axios.isAxiosError(err)) {
+    const apiError = err.response?.data?.error
+    if (typeof apiError === 'string' && apiError.trim()) return apiError
+    if (err.code === 'ECONNABORTED') return 'Koneksi timeout. Periksa jaringan dan coba lagi.'
+    if (!err.response) return 'Tidak dapat menghubungi server.'
+  }
+  return fallback
+}
+
+export function formatRupiah(value: number): string {
+  return new Intl.NumberFormat('id-ID', {
+    style: 'currency',
+    currency: 'IDR',
+    maximumFractionDigits: 0,
+  }).format(value)
+}
+
 export const adminApi = {
-  // Auth
+  // ---- Auth -------------------------------------------------------------
   login: async (identifier: string, password: string): Promise<{ token: string; user: User }> => {
     const res = await api.post('/auth/admin-login', { identifier, password })
     const data = res.data.data
-    localStorage.setItem('olga_admin_token', data.token)
-    localStorage.setItem('olga_admin_user', JSON.stringify(data.user))
+    localStorage.setItem(TOKEN_KEY, data.token)
+    localStorage.setItem(USER_KEY, JSON.stringify(data.user))
     return data
   },
 
@@ -32,65 +79,97 @@ export const adminApi = {
   },
 
   logout: () => {
-    localStorage.removeItem('olga_admin_token')
-    localStorage.removeItem('olga_admin_user')
+    localStorage.removeItem(TOKEN_KEY)
+    localStorage.removeItem(USER_KEY)
   },
 
-  // Branches
+  // ---- Branches ---------------------------------------------------------
   getBranches: async (): Promise<Branch[]> => {
     const res = await api.get('/branches')
-    return res.data.data
+    return res.data.data ?? []
   },
 
   toggleBranchStatus: async (branchId: string, isOpen: boolean) => {
     const res = await api.put(`/admin/branches/${branchId}/status`, { is_open: isOpen })
-    return res.data
+    return res.data.data
   },
 
-  // Orders
-  getOrders: async (params?: { status?: string; branch_id?: string; search?: string }): Promise<{ data: Order[]; total: number }> => {
+  // ---- Orders -----------------------------------------------------------
+  getOrders: async (params?: {
+    status?: string
+    branch_id?: string
+    search?: string
+    limit?: number
+    offset?: number
+  }): Promise<{ orders: Order[]; total: number; unread: number }> => {
     const res = await api.get('/admin/orders', { params })
-    return res.data
+    return {
+      orders: res.data.data ?? [],
+      total: res.data.total ?? 0,
+      unread: res.data.unread ?? 0,
+    }
   },
 
   getOrder: async (id: string): Promise<Order> => {
-    const res = await api.get(`/orders/${id}`)
+    const res = await api.get(`/admin/orders/${id}`)
     return res.data.data
   },
 
-  updateOrderStatus: async (orderId: string, status: string, expectedVersion: number, rejectionReason?: string) => {
+  updateOrderStatus: async (
+    orderId: string,
+    status: string,
+    expectedVersion: number,
+    rejectionReason?: string
+  ): Promise<Order> => {
     const res = await api.put(`/admin/orders/${orderId}/status`, {
       status,
       expected_version: expectedVersion,
-      rejection_reason: rejectionReason || '',
+      rejection_reason: rejectionReason ?? '',
     })
-    return res.data
-  },
-
-  // Menu Management
-  getMenuItems: async (branchId: string): Promise<MenuItem[]> => {
-    const res = await api.get(`/branches/${branchId}/menu`)
     return res.data.data
   },
 
-  createMenuItem: async (item: Partial<MenuItem>): Promise<MenuItem> => {
+  /** Records the courier handling an order; required before "on_the_way". */
+  assignDriver: async (orderId: string, driver: DriverInput): Promise<Order> => {
+    const res = await api.put(`/admin/orders/${orderId}/driver`, driver)
+    return res.data.data
+  },
+
+  /** Clears the unread-order badge, which is backed by the database. */
+  acknowledgeOrders: async (orderIds?: string[]): Promise<{ acknowledged: number; unread: number }> => {
+    const res = await api.post('/admin/orders/acknowledge', orderIds ? { order_ids: orderIds } : {})
+    return res.data.data
+  },
+
+  // ---- Menu -------------------------------------------------------------
+  getCategories: async (): Promise<Category[]> => {
+    const res = await api.get('/categories')
+    return res.data.data ?? []
+  },
+
+  getMenuItems: async (branchIdOrSlug: string): Promise<MenuItem[]> => {
+    const res = await api.get(`/branches/${branchIdOrSlug}/menu`)
+    return res.data.data ?? []
+  },
+
+  createMenuItem: async (item: MenuItemInput): Promise<MenuItem> => {
     const res = await api.post('/admin/menu', item)
     return res.data.data
   },
 
-  updateMenuItem: async (id: string, item: Partial<MenuItem>): Promise<MenuItem> => {
+  updateMenuItem: async (id: string, item: Partial<MenuItemInput>): Promise<MenuItem> => {
     const res = await api.put(`/admin/menu/${id}`, item)
     return res.data.data
   },
 
   toggleItemAvailability: async (id: string, isAvailable: boolean) => {
     const res = await api.put(`/admin/menu/${id}/availability`, { is_available: isAvailable })
-    return res.data
+    return res.data.data
   },
 
   deleteMenuItem: async (id: string) => {
     const res = await api.delete(`/admin/menu/${id}`)
-    return res.data
+    return res.data.data
   },
 
   uploadImage: async (file: File): Promise<string> => {
@@ -98,29 +177,33 @@ export const adminApi = {
     formData.append('image', file)
     const res = await api.post('/admin/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 60000,
     })
-    return res.data.url
+    return res.data.data.url
   },
 
-  // Settings
-  getSettings: async (branchId?: string): Promise<BranchSettings> => {
+  // ---- Settings ---------------------------------------------------------
+  getSettings: async (branchId: string): Promise<BranchSettings> => {
     const res = await api.get('/admin/settings', { params: { branch_id: branchId } })
     return res.data.data
   },
 
-  updateSettings: async (settings: Partial<BranchSettings>) => {
+  updateSettings: async (settings: Partial<BranchSettings> & { branch_id: string }): Promise<BranchSettings> => {
     const res = await api.put('/admin/settings', settings)
-    return res.data
-  },
-
-  // Dashboard & Analytics
-  getBranchDashboard: async (): Promise<any> => {
-    const res = await api.get('/admin/dashboard')
     return res.data.data
   },
 
-  getOwnerDashboard: async (): Promise<any> => {
-    const res = await api.get('/owner/dashboard')
+  // ---- Dashboard --------------------------------------------------------
+  getBranchDashboard: async (branchId: string): Promise<DashboardStats> => {
+    const res = await api.get('/admin/dashboard', { params: { branch_id: branchId } })
+    return res.data.data
+  },
+
+  /** Network-wide, or one outlet when branchId is given. */
+  getOwnerDashboard: async (branchId?: string): Promise<DashboardStats> => {
+    const res = await api.get('/owner/dashboard', {
+      params: branchId ? { branch_id: branchId } : undefined,
+    })
     return res.data.data
   },
 }
