@@ -8,20 +8,31 @@ const MIN_QUERY_LENGTH = 3
 
 interface Props {
   branch: Branch
+  whatsappNumber: string
+  description: string
+  onWhatsappChange: (value: string) => void
+  onDescriptionChange: (value: string) => void
+  onSaveOutletDetails: () => Promise<boolean>
+  outletDetailsSaving: boolean
 }
 
 /**
- * Edits the outlet's public identity (name/address/phone/coordinates).
- * This used to only be settable once, at seed time, with no admin UI at all
- * — an operator who needed to fix a wrong address or add a real phone number
- * had no way to do it short of a direct database edit.
+ * Edits the outlet's public identity (name/address/coordinates).
+ * This used to only be settable once, at seed time, with no admin UI at all.
  */
-export const BranchProfileForm: React.FC<Props> = ({ branch }) => {
+export const BranchProfileForm: React.FC<Props> = ({
+  branch,
+  whatsappNumber,
+  description,
+  onWhatsappChange,
+  onDescriptionChange,
+  onSaveOutletDetails,
+  outletDetailsSaving,
+}) => {
   const { refreshBranches } = useAuth()
 
   const [name, setName] = useState(branch.name)
   const [address, setAddress] = useState(branch.address)
-  const [phone, setPhone] = useState(branch.phone)
   const [coords, setCoords] = useState({ lat: branch.latitude, lon: branch.longitude })
 
   const [query, setQuery] = useState('')
@@ -39,11 +50,10 @@ export const BranchProfileForm: React.FC<Props> = ({ branch }) => {
   useEffect(() => {
     setName(branch.name)
     setAddress(branch.address)
-    setPhone(branch.phone)
     setCoords({ lat: branch.latitude, lon: branch.longitude })
     setQuery('')
     setResults([])
-  }, [branch.id, branch.name, branch.address, branch.phone, branch.latitude, branch.longitude])
+  }, [branch.id, branch.name, branch.address, branch.latitude, branch.longitude])
 
   // Debounced address search against the same geocoder the customer app uses,
   // so a picked result carries real coordinates instead of a hand-typed guess.
@@ -87,13 +97,6 @@ export const BranchProfileForm: React.FC<Props> = ({ branch }) => {
     setResults([])
   }
 
-  const dirty =
-    name !== branch.name ||
-    address !== branch.address ||
-    phone !== branch.phone ||
-    coords.lat !== branch.latitude ||
-    coords.lon !== branch.longitude
-
   const handleSave = async () => {
     if (!name.trim()) {
       setError('Nama outlet wajib diisi.')
@@ -114,11 +117,17 @@ export const BranchProfileForm: React.FC<Props> = ({ branch }) => {
       await adminApi.updateBranchProfile(branch.id, {
         name: name.trim(),
         address: address.trim(),
-        phone: phone.trim(),
+        // The customer contact number is managed once, in the WhatsApp field
+        // in Settings. Keep this legacy branch value unchanged here.
+        phone: branch.phone,
         latitude: coords.lat,
         longitude: coords.lon,
       })
       await refreshBranches()
+      if (!(await onSaveOutletDetails())) {
+        setError('Profil outlet tersimpan, tetapi detail WhatsApp atau deskripsi belum dapat disimpan. Silakan coba lagi.')
+        return
+      }
       setSaved(true)
       window.setTimeout(() => setSaved(false), 2500)
     } catch (err) {
@@ -134,7 +143,7 @@ export const BranchProfileForm: React.FC<Props> = ({ branch }) => {
         <div>
           <h3 className="font-serif font-bold text-sm text-stone-900">Profil Outlet</h3>
           <p className="text-[11px] text-stone-500">
-            Nama, alamat, dan koordinat ini yang dipakai untuk menghitung ongkir pelanggan.
+            Kelola identitas, WhatsApp pelanggan, dan deskripsi outlet di satu tempat.
           </p>
         </div>
         {saved && (
@@ -164,20 +173,18 @@ export const BranchProfileForm: React.FC<Props> = ({ branch }) => {
       </div>
 
       <div>
-        <label htmlFor="branch-phone" className="text-xs font-bold text-stone-600 mb-1 block">
-          WhatsApp outlet
+        <label htmlFor="branch-whatsapp" className="text-xs font-bold text-stone-600 mb-1 block">
+          WhatsApp outlet *
         </label>
         <input
-          id="branch-phone"
+          id="branch-whatsapp"
           type="tel"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
+          value={whatsappNumber}
+          onChange={(event) => onWhatsappChange(event.target.value)}
           placeholder="081234567890"
           className="w-full px-4 py-2 bg-stone-50 border border-stone-300 rounded-xl text-xs font-mono focus:outline-none focus:border-brand-500"
         />
-        {!phone.trim() && (
-          <p className="text-[10px] text-amber-600 mt-1">Belum diisi.</p>
-        )}
+        <p className="text-[10px] text-stone-400 mt-1">Nomor ini tampil sebagai tombol WhatsApp admin untuk pelanggan.</p>
       </div>
 
       <div className="space-y-2">
@@ -239,13 +246,28 @@ export const BranchProfileForm: React.FC<Props> = ({ branch }) => {
         )}
       </div>
 
+      <div>
+        <label htmlFor="branch-description" className="text-xs font-bold text-stone-600 mb-1 block">
+          Deskripsi outlet
+        </label>
+        <textarea
+          id="branch-description"
+          rows={2}
+          maxLength={500}
+          value={description}
+          onChange={(event) => onDescriptionChange(event.target.value)}
+          placeholder="Contoh: Kedai kopi dan makanan di Solo."
+          className="w-full px-4 py-2 bg-stone-50 border border-stone-300 rounded-xl text-xs focus:outline-none focus:border-brand-500"
+        ></textarea>
+      </div>
+
       <button
         onClick={handleSave}
-        disabled={saving || !dirty}
+        disabled={saving || outletDetailsSaving}
         className="w-full py-3 bg-stone-900 hover:bg-black disabled:opacity-40 text-white font-bold rounded-2xl text-xs shadow-md flex items-center justify-center gap-2 transition-all"
       >
-        <i className={`fa-solid ${saving ? 'fa-circle-notch fa-spin' : 'fa-floppy-disk'}`} aria-hidden="true"></i>
-        <span>{saving ? 'Menyimpan...' : 'Simpan profil outlet'}</span>
+        <i className={`fa-solid ${saving || outletDetailsSaving ? 'fa-circle-notch fa-spin' : 'fa-floppy-disk'}`} aria-hidden="true"></i>
+        <span>{saving || outletDetailsSaving ? 'Menyimpan...' : 'Simpan profil outlet'}</span>
       </button>
     </div>
   )

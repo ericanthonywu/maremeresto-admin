@@ -94,13 +94,13 @@ export const SettingsPage: React.FC = () => {
     return null
   }
 
-  const handleSave = async () => {
-    if (!settings || !activeBranchId) return
+  const saveOutletDetails = async (): Promise<boolean> => {
+    if (!settings || !activeBranchId) return false
 
     const problem = validate(settings)
     if (problem) {
       setError(problem)
-      return
+      return false
     }
 
     setSaving(true)
@@ -116,11 +116,17 @@ export const SettingsPage: React.FC = () => {
       })
       setSaved(true)
       window.setTimeout(() => setSaved(false), 2500)
+      return true
     } catch (err) {
       setError(errorMessage(err, 'Gagal menyimpan pengaturan.'))
+      return false
     } finally {
       setSaving(false)
     }
+  }
+
+  const handleSave = async () => {
+    await saveOutletDetails()
   }
 
   const handleToggleOpen = async () => {
@@ -205,7 +211,17 @@ export const SettingsPage: React.FC = () => {
         </div>
       )}
 
-      {activeBranch && <BranchProfileForm branch={activeBranch} />}
+      {activeBranch && (
+        <BranchProfileForm
+          branch={activeBranch}
+          whatsappNumber={settings.whatsapp_number}
+          description={settings.description ?? ''}
+          onWhatsappChange={(value) => updateField('whatsapp_number', value)}
+          onDescriptionChange={(value) => updateField('description', value)}
+          onSaveOutletDetails={saveOutletDetails}
+          outletDetailsSaving={saving}
+        />
+      )}
 
       {/* Master open/closed switch */}
       <div className="bg-white rounded-3xl p-6 border border-stone-200 shadow-sm flex items-center justify-between gap-4">
@@ -341,44 +357,6 @@ export const SettingsPage: React.FC = () => {
             <p className="text-[10px] text-stone-400 mt-1">0 = tanpa minimum</p>
           </div>
 
-        </div>
-      </div>
-
-      {/* Contact */}
-      <div className="bg-white rounded-3xl p-6 border border-stone-200 shadow-sm space-y-4">
-        <div>
-          <h3 className="font-serif font-bold text-sm text-stone-900">Kontak Outlet</h3>
-          <p className="text-[11px] text-stone-500">
-            WhatsApp ini yang dihubungi pelanggan dari halaman pesanan dan pelacakan.
-          </p>
-        </div>
-
-        <div>
-          <label htmlFor="wa-number" className="text-xs font-bold text-stone-600 mb-1 block">
-            Nomor WhatsApp outlet *
-          </label>
-          <input
-            id="wa-number"
-            type="tel"
-            value={settings.whatsapp_number}
-            onChange={(e) => updateField('whatsapp_number', e.target.value)}
-            placeholder="081234567890"
-            className="w-full px-4 py-2 bg-stone-50 border border-stone-300 rounded-xl text-xs font-mono focus:outline-none focus:border-brand-500"
-          />
-        </div>
-
-        <div>
-          <label htmlFor="branch-desc" className="text-xs font-bold text-stone-600 mb-1 block">
-            Deskripsi outlet
-          </label>
-          <textarea
-            id="branch-desc"
-            rows={2}
-            maxLength={500}
-            value={settings.description ?? ''}
-            onChange={(e) => updateField('description', e.target.value)}
-            className="w-full px-4 py-2 bg-stone-50 border border-stone-300 rounded-xl text-xs focus:outline-none focus:border-brand-500"
-          ></textarea>
         </div>
       </div>
 
