@@ -93,11 +93,6 @@ export interface Order {
   grand_total: number
   promo_code?: string
   scheduled_at?: string
-  driver_name?: string
-  driver_phone?: string
-  driver_vehicle?: string
-  driver_plate?: string
-  driver_assigned_at?: string
   acknowledged_at?: string
   rejection_reason?: string
   version: number
@@ -198,11 +193,4 @@ export interface DashboardStats {
   revenue_delta_pct: number | null
   hourly: HourlySalesPoint[]
   branches?: BranchSalesPoint[]
-}
-
-export interface DriverInput {
-  driver_name: string
-  driver_phone: string
-  driver_vehicle: string
-  driver_plate: string
 }

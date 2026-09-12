@@ -6,7 +6,6 @@ import type {
   CategoryInput,
   DashboardStats,
   GeocodeResult,
-  DriverInput,
   MenuItem,
   MenuItemInput,
   Order,
@@ -145,12 +144,6 @@ export const adminApi = {
       expected_version: expectedVersion,
       rejection_reason: rejectionReason ?? '',
     })
-    return res.data.data
-  },
-
-  /** Records the courier handling an order; required before completing delivery. */
-  assignDriver: async (orderId: string, driver: DriverInput): Promise<Order> => {
-    const res = await api.put(`/admin/orders/${orderId}/driver`, driver)
     return res.data.data
   },
 

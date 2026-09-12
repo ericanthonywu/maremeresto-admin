@@ -4,7 +4,6 @@ import { adminApi, errorMessage, formatRupiah } from '../api/client'
 import { useAdminWebSocket } from '../context/AdminWebSocketContext'
 import { useAuth } from '../context/AuthContext'
 import { useNotifications } from '../context/NotificationContext'
-import { AssignDriverModal } from '../components/AssignDriverModal'
 import { RefundOrderModal } from '../components/RefundOrderModal'
 import type { Order, OrderStatus } from '../types'
 
@@ -80,7 +79,6 @@ export const OrdersPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null)
   const [busyIds, setBusyIds] = useState<Set<string>>(new Set())
   const [expandedId, setExpandedId] = useState<string | null>(searchParams.get('highlight'))
-  const [driverTarget, setDriverTarget] = useState<Order | null>(null)
   const [refundTarget, setRefundTarget] = useState<Order | null>(null)
 
   const highlightId = searchParams.get('highlight')
@@ -151,13 +149,6 @@ export const OrdersPage: React.FC = () => {
   const handleAdvanceStatus = async (order: Order) => {
     const next = nextStatusFor(order)
     if (!next) return
-
-    // Staff use this action to signal that the selected courier has departed.
-    // Open assignment first if no courier has been recorded yet.
-    if (next === 'completed' && order.order_type !== 'pickup' && !order.driver_name) {
-      setDriverTarget(order)
-      return
-    }
 
     setBusy(order.id, true)
     try {
@@ -403,31 +394,14 @@ export const OrdersPage: React.FC = () => {
 
                         <td className="px-4 py-3">
                           <div className="flex items-center justify-end gap-1.5">
-                            {order.order_type !== 'pickup' && order.status === 'accepted' && (
-                                <button
-                                  onClick={() => setDriverTarget(order)}
-                                  disabled={busy}
-                                  title={order.driver_name ? `Kurir: ${order.driver_name}` : 'Tetapkan kurir'}
-                                  className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-all disabled:opacity-50 ${
-                                    order.driver_name
-                                      ? 'bg-stone-50 text-stone-600 border-stone-200 hover:bg-stone-100'
-                                      : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
-                                  }`}
-                                >
-                                  <i className="fa-solid fa-motorcycle" aria-hidden="true"></i>
-                                  <span className="ml-1 hidden xl:inline">
-                                    {order.driver_name ? 'Kurir' : 'Pilih kurir'}
-                                  </span>
-                                </button>
-                              )}
-
                             {next && (
                               <button
                                 onClick={() => handleAdvanceStatus(order)}
                                 disabled={busy}
+                                title={next === 'completed' && order.order_type !== 'pickup' ? 'Tandai pesanan sedang diantar' : undefined}
                                 className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg text-[10px] font-bold shadow-sm transition-all active:scale-95 whitespace-nowrap"
                               >
-                                {busy ? '...' : next === 'completed' ? '→ Mulai antar' : `→ ${STATUS_LABELS[next]?.label ?? next}`}
+                                {busy ? '...' : next === 'completed' && order.order_type !== 'pickup' ? '→ Sedang diantar' : `→ ${STATUS_LABELS[next]?.label ?? next}`}
                               </button>
                             )}
 
@@ -510,10 +484,9 @@ export const OrdersPage: React.FC = () => {
                                     )}
                                   </>
                                 )}
-                                {order.driver_name && (
-                                  <p className="text-stone-600 pt-1">
-                                    Kurir: <span className="font-bold">{order.driver_name}</span>
-                                    {order.driver_plate && ` · ${order.driver_plate}`}
+                                {order.order_type !== 'pickup' && order.status === 'completed' && (
+                                  <p className="rounded-lg border border-emerald-200 bg-emerald-50 p-2 text-[10px] font-semibold text-emerald-800">
+                                    Pesanan sedang diantar. Pelanggan diarahkan untuk menghubungi WhatsApp outlet.
                                   </p>
                                 )}
                               </div>
@@ -572,12 +545,6 @@ export const OrdersPage: React.FC = () => {
           </div>
         </div>
       )}
-
-      <AssignDriverModal
-        order={driverTarget}
-        onClose={() => setDriverTarget(null)}
-        onAssigned={applyUpdated}
-      />
 
       <RefundOrderModal
         order={refundTarget}
