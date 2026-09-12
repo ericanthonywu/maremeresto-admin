@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { adminApi, errorMessage, formatRupiah } from '../api/client'
 import { useAuth } from '../context/AuthContext'
 import { MenuItemFormModal } from '../components/MenuItemFormModal'
+import { CategoryManagementModal } from '../components/CategoryManagementModal'
 import type { Category, MenuItem } from '../types'
 
 type AvailabilityFilter = 'all' | 'available' | 'unavailable'
@@ -20,6 +21,7 @@ export const MenuManagementPage: React.FC = () => {
   const [availabilityFilter, setAvailabilityFilter] = useState<AvailabilityFilter>('all')
 
   const [formOpen, setFormOpen] = useState(false)
+  const [categoryModalOpen, setCategoryModalOpen] = useState(false)
   const [editing, setEditing] = useState<MenuItem | null>(null)
   const [busyIds, setBusyIds] = useState<Set<string>>(new Set())
 
@@ -176,13 +178,23 @@ export const MenuManagementPage: React.FC = () => {
           </p>
         </div>
 
-        <button
-          onClick={openCreate}
-          className="px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-2xl text-xs font-bold shadow-md flex items-center gap-2 transition-all active:scale-95"
-        >
-          <i className="fa-solid fa-plus" aria-hidden="true"></i>
-          <span>Tambah menu</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setCategoryModalOpen(true)}
+            className="px-4 py-2.5 bg-white hover:bg-stone-50 text-stone-700 border border-stone-300 rounded-2xl text-xs font-bold shadow-sm flex items-center gap-2 transition-all active:scale-95"
+          >
+            <i className="fa-solid fa-tags text-brand-600" aria-hidden="true"></i>
+            <span>Kelola Kategori</span>
+          </button>
+
+          <button
+            onClick={openCreate}
+            className="px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-2xl text-xs font-bold shadow-md flex items-center gap-2 transition-all active:scale-95"
+          >
+            <i className="fa-solid fa-plus" aria-hidden="true"></i>
+            <span>Tambah menu</span>
+          </button>
+        </div>
       </div>
 
       {notice && (
@@ -393,6 +405,14 @@ export const MenuManagementPage: React.FC = () => {
         categories={categories}
         onClose={() => setFormOpen(false)}
         onSaved={handleSaved}
+      />
+
+      <CategoryManagementModal
+        isOpen={categoryModalOpen}
+        categories={categories}
+        menuItems={items}
+        onClose={() => setCategoryModalOpen(false)}
+        onCategoriesChanged={() => void load()}
       />
     </div>
   )

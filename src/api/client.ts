@@ -3,6 +3,7 @@ import type {
   Branch,
   BranchSettings,
   Category,
+  CategoryInput,
   DashboardStats,
   GeocodeResult,
   DriverInput,
@@ -162,6 +163,21 @@ export const adminApi = {
   getCategories: async (): Promise<Category[]> => {
     const res = await api.get('/categories')
     return res.data.data ?? []
+  },
+
+  createCategory: async (cat: CategoryInput): Promise<Category> => {
+    const res = await api.post('/admin/categories', cat)
+    return res.data.data
+  },
+
+  updateCategory: async (id: string, cat: Partial<CategoryInput>): Promise<Category> => {
+    const res = await api.put(`/admin/categories/${id}`, cat)
+    return res.data.data
+  },
+
+  deleteCategory: async (id: string): Promise<{ id: string }> => {
+    const res = await api.delete(`/admin/categories/${id}`)
+    return res.data.data
   },
 
   getMenuItems: async (branchIdOrSlug: string): Promise<MenuItem[]> => {

@@ -17,9 +17,12 @@ interface NavItem {
 export const AdminLayout: React.FC = () => {
   const { user, logout, isOwner, branches, activeBranchId, setActiveBranchId, activeBranch } = useAuth()
   const { isConnected } = useAdminWebSocket()
-  const { unreadCount, setUnreadCount } = useNotifications()
+  const { unreadCount, setUnreadCount, desktopPermission, requestDesktopPermission, testAlert } = useNotifications()
   const location = useLocation()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [dismissedNoticeBanner, setDismissedNoticeBanner] = useState(
+    () => sessionStorage.getItem('dismissed_notif_banner') === '1'
+  )
 
   // Seed the unread badge from the database so a reload does not reset it.
   useEffect(() => {
@@ -220,6 +223,38 @@ export const AdminLayout: React.FC = () => {
             </Link>
           </div>
         </header>
+
+        {desktopPermission === 'default' && !dismissedNoticeBanner && (
+          <div className="bg-gradient-to-r from-amber-600 via-brand-600 to-amber-700 text-white px-4 sm:px-6 py-2.5 shadow-sm flex items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <i className="fa-solid fa-bell text-amber-200 text-sm shrink-0 animate-bounce" aria-hidden="true"></i>
+              <span className="font-medium truncate sm:whitespace-normal">
+                Aktifkan notifikasi browser dan suara agar langsung menerima pemberitahuan setiap ada pesanan masuk.
+              </span>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={async () => {
+                  testAlert()
+                  await requestDesktopPermission()
+                }}
+                className="px-3 py-1 bg-white text-stone-900 font-bold rounded-xl hover:bg-amber-50 text-xs shadow transition-all active:scale-95"
+              >
+                Aktifkan
+              </button>
+              <button
+                onClick={() => {
+                  setDismissedNoticeBanner(true)
+                  sessionStorage.setItem('dismissed_notif_banner', '1')
+                }}
+                className="text-white/80 hover:text-white p-1 rounded-lg"
+                aria-label="Tutup"
+              >
+                <i className="fa-solid fa-xmark text-sm" aria-hidden="true"></i>
+              </button>
+            </div>
+          </div>
+        )}
 
         <main className="flex-1 p-4 sm:p-6">
           <Outlet />

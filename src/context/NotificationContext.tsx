@@ -137,7 +137,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
             // rather than stacking duplicates.
             tag: `order-${order.id}`,
             icon: '/favicon.svg',
-            requireInteraction: false,
+            requireInteraction: true,
           })
           notification.onclick = () => {
             window.focus()

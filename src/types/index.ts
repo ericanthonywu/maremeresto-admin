@@ -33,6 +33,12 @@ export interface Category {
   sort_order: number
 }
 
+export interface CategoryInput {
+  name: string
+  emoji: string
+  sort_order: number
+}
+
 export interface GeocodeResult {
   label: string
   full_address: string
