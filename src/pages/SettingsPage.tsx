@@ -216,8 +216,10 @@ export const SettingsPage: React.FC = () => {
           branch={activeBranch}
           whatsappNumber={settings.whatsapp_number}
           description={settings.description ?? ''}
+          halalCertificateId={settings.halal_certificate_id ?? ''}
           onWhatsappChange={(value) => updateField('whatsapp_number', value)}
           onDescriptionChange={(value) => updateField('description', value)}
+          onHalalCertificateIdChange={(value) => updateField('halal_certificate_id', value)}
           onSaveOutletDetails={saveOutletDetails}
           outletDetailsSaving={saving}
         />

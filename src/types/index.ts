@@ -155,6 +155,7 @@ export interface BranchSettings {
   free_delivery_threshold: number
   whatsapp_number: string
   description?: string
+  halal_certificate_id: string
 }
 
 export interface DayHours {
