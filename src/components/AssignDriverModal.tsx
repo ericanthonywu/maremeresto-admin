@@ -58,7 +58,7 @@ export const AssignDriverModal: React.FC<AssignDriverModalProps> = ({ order, onC
       return
     }
     if (!isValidPhone(form.driver_phone)) {
-      setError('Nomor telepon kurir tidak valid. Gunakan format 08... atau +628...')
+      setError('WhatsApp kurir tidak valid. Gunakan format 08... atau +628...')
       return
     }
 
@@ -111,7 +111,7 @@ export const AssignDriverModal: React.FC<AssignDriverModalProps> = ({ order, onC
         </div>
 
         <p className="text-[11px] text-stone-600 bg-stone-50 border border-stone-200 rounded-xl p-2.5">
-          Data ini tampil di halaman pelacakan pelanggan, lengkap dengan tombol WhatsApp dan telepon.
+          Data ini tampil di halaman pelacakan pelanggan melalui tombol WhatsApp.
           Isi dengan data kurir yang sebenarnya.
         </p>
 
@@ -134,7 +134,7 @@ export const AssignDriverModal: React.FC<AssignDriverModalProps> = ({ order, onC
 
           <div>
             <label htmlFor="d-phone" className="block text-xs font-bold text-stone-700 mb-1">
-              Nomor telepon / WhatsApp *
+              WhatsApp kurir *
             </label>
             <input
               id="d-phone"

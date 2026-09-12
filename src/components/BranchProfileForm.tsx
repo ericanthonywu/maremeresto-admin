@@ -165,7 +165,7 @@ export const BranchProfileForm: React.FC<Props> = ({ branch }) => {
 
       <div>
         <label htmlFor="branch-phone" className="text-xs font-bold text-stone-600 mb-1 block">
-          Nomor telepon outlet
+          WhatsApp outlet
         </label>
         <input
           id="branch-phone"

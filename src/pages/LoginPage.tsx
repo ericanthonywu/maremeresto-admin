@@ -52,7 +52,7 @@ export const LoginPage: React.FC = () => {
           >
             <i className="fa-solid fa-mug-hot"></i>
           </div>
-          <h1 className="font-serif text-3xl font-bold text-white">Mareme Resto</h1>
+          <h1 className="font-serif text-3xl font-bold text-white">Mareme Group</h1>
           <p className="text-stone-400 text-xs">Portal Admin & Barista</p>
         </div>
 
@@ -62,7 +62,7 @@ export const LoginPage: React.FC = () => {
         >
           <div>
             <label htmlFor="identifier" className="block text-xs font-bold text-stone-300 mb-1.5">
-              Email admin atau nomor HP
+              Email admin atau WhatsApp
             </label>
             <div className="relative">
               <i

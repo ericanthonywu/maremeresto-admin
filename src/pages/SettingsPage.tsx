@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react'
-import { adminApi, errorMessage, formatRupiah } from '../api/client'
+import { adminApi, errorMessage } from '../api/client'
 import { useAuth } from '../context/AuthContext'
 import type { BranchSettings, DayHours } from '../types'
 import { BranchProfileForm } from '../components/BranchProfileForm'
@@ -285,93 +285,23 @@ export const SettingsPage: React.FC = () => {
         <div>
           <h3 className="font-serif font-bold text-sm text-stone-900">Tarif Ongkos Kirim</h3>
           <p className="text-[11px] text-stone-500">
-            Tarif ini yang dipakai untuk menghitung ongkir pelanggan. Perubahan langsung berlaku.
+            Tarif berlaku sama untuk seluruh outlet dan dihitung otomatis dari jarak alamat pelanggan.
           </p>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-          <div>
-            <label htmlFor="near-km" className="text-xs font-bold text-stone-600 mb-1 block">
-              Batas dekat (km)
-            </label>
-            <input
-              id="near-km"
-              type="number"
-              min={1}
-              max={49}
-              value={settings.near_threshold_km}
-              onChange={(e) => updateField('near_threshold_km', Number(e.target.value))}
-              className="w-full px-3 py-2 bg-stone-50 border border-stone-300 rounded-xl text-xs font-mono focus:outline-none focus:border-brand-500"
-            />
-          </div>
-          <div>
-            <label htmlFor="mid-km" className="text-xs font-bold text-stone-600 mb-1 block">
-              Batas menengah (km)
-            </label>
-            <input
-              id="mid-km"
-              type="number"
-              min={2}
-              max={50}
-              value={settings.mid_threshold_km}
-              onChange={(e) => updateField('mid_threshold_km', Number(e.target.value))}
-              className="w-full px-3 py-2 bg-stone-50 border border-stone-300 rounded-xl text-xs font-mono focus:outline-none focus:border-brand-500"
-            />
-          </div>
-          <div>
-            <label htmlFor="max-km" className="text-xs font-bold text-stone-600 mb-1 block">
-              Radius maksimal (km)
-            </label>
-            <input
-              id="max-km"
-              type="number"
-              min={1}
-              max={50}
-              value={settings.max_delivery_radius_km}
-              onChange={(e) => updateField('max_delivery_radius_km', Number(e.target.value))}
-              className="w-full px-3 py-2 bg-stone-50 border border-stone-300 rounded-xl text-xs font-mono focus:outline-none focus:border-brand-500"
-            />
-            <p className="text-[10px] text-stone-400 mt-1">Di luar ini pesanan antar ditolak</p>
-          </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+          <div className="rounded-2xl bg-emerald-50 border border-emerald-200 p-4"><span className="block text-[10px] uppercase font-bold tracking-wider text-emerald-700">0–1 km</span><strong className="block text-base text-emerald-800 mt-1">Gratis</strong></div>
+          <div className="rounded-2xl bg-amber-50 border border-amber-200 p-4"><span className="block text-[10px] uppercase font-bold tracking-wider text-amber-700">&gt;1–5 km</span><strong className="block text-base text-amber-800 mt-1">Rp8.000</strong></div>
+          <div className="rounded-2xl bg-blue-50 border border-blue-200 p-4"><span className="block text-[10px] uppercase font-bold tracking-wider text-blue-700">&gt;5–10 km</span><strong className="block text-base text-blue-800 mt-1">Rp12.000</strong></div>
         </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {(
-            [
-              { key: 'base_delivery_fee_near' as const, label: `Dekat (≤${settings.near_threshold_km} km)` },
-              {
-                key: 'base_delivery_fee_mid' as const,
-                label: `Menengah (${settings.near_threshold_km}–${settings.mid_threshold_km} km)`,
-              },
-              { key: 'base_delivery_fee_far' as const, label: `Jauh (>${settings.mid_threshold_km} km)` },
-            ]
-          ).map(({ key, label }) => (
-            <div key={key}>
-              <label htmlFor={key} className="text-xs font-bold text-stone-600 mb-1 block">
-                {label}
-              </label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-stone-400">Rp</span>
-                <input
-                  id={key}
-                  type="number"
-                  min={0}
-                  step={500}
-                  value={settings[key]}
-                  onChange={(e) => updateField(key, Number(e.target.value))}
-                  className="w-full pl-9 pr-3 py-2 bg-stone-50 border border-stone-300 rounded-xl text-xs font-mono focus:outline-none focus:border-brand-500"
-                />
-              </div>
-            </div>
-          ))}
-        </div>
+        <p className="text-[11px] text-red-700 font-semibold">Maksimum jarak pengantaran: 10 km.</p>
       </div>
 
       {/* Fees and thresholds */}
       <div className="bg-white rounded-3xl p-6 border border-stone-200 shadow-sm space-y-4">
         <h3 className="font-serif font-bold text-sm text-stone-900">Biaya & Batas Pesanan</h3>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             {/* This field exists now: the server previously dropped service_fee
                 from the UPDATE, so it could never be changed. */}
@@ -411,28 +341,6 @@ export const SettingsPage: React.FC = () => {
             <p className="text-[10px] text-stone-400 mt-1">0 = tanpa minimum</p>
           </div>
 
-          <div>
-            <label htmlFor="free-delivery" className="text-xs font-bold text-stone-600 mb-1 block">
-              Gratis ongkir di atas
-            </label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-stone-400">Rp</span>
-              <input
-                id="free-delivery"
-                type="number"
-                min={0}
-                step={5000}
-                value={settings.free_delivery_threshold}
-                onChange={(e) => updateField('free_delivery_threshold', Number(e.target.value))}
-                className="w-full pl-9 pr-3 py-2 bg-stone-50 border border-stone-300 rounded-xl text-xs font-mono focus:outline-none focus:border-brand-500"
-              />
-            </div>
-            <p className="text-[10px] text-stone-400 mt-1">
-              {settings.free_delivery_threshold > 0
-                ? `Berlaku dari ${formatRupiah(settings.free_delivery_threshold)}`
-                : 'Nonaktif'}
-            </p>
-          </div>
         </div>
       </div>
 
@@ -441,7 +349,7 @@ export const SettingsPage: React.FC = () => {
         <div>
           <h3 className="font-serif font-bold text-sm text-stone-900">Kontak Outlet</h3>
           <p className="text-[11px] text-stone-500">
-            Nomor ini yang dihubungi pelanggan dari halaman pesanan dan pelacakan.
+            WhatsApp ini yang dihubungi pelanggan dari halaman pesanan dan pelacakan.
           </p>
         </div>
 

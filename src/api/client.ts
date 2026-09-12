@@ -119,12 +119,13 @@ export const adminApi = {
     search?: string
     limit?: number
     offset?: number
-  }): Promise<{ orders: Order[]; total: number; unread: number }> => {
+  }): Promise<{ orders: Order[]; total: number; unread: number; statusCounts: Record<string, number> }> => {
     const res = await api.get('/admin/orders', { params })
     return {
       orders: res.data.data ?? [],
       total: res.data.total ?? 0,
       unread: res.data.unread ?? 0,
+      statusCounts: res.data.status_counts ?? {},
     }
   },
 
@@ -147,7 +148,7 @@ export const adminApi = {
     return res.data.data
   },
 
-  /** Records the courier handling an order; required before "on_the_way". */
+  /** Records the courier handling an order; required before completing delivery. */
   assignDriver: async (orderId: string, driver: DriverInput): Promise<Order> => {
     const res = await api.put(`/admin/orders/${orderId}/driver`, driver)
     return res.data.data
@@ -216,8 +217,16 @@ export const adminApi = {
   },
 
   updateMenuItem: async (id: string, item: Partial<MenuItemInput>): Promise<MenuItem> => {
-    const res = await api.put(`/admin/menu/${id}`, item)
+    // branch_id is required on creation but intentionally forbidden on the
+    // update DTO: changing an item's outlet by editing it would be unsafe.
+    const { branch_id: _branchId, ...payload } = item
+    const res = await api.put(`/admin/menu/${id}`, payload)
     return res.data.data
+  },
+
+  createMenuItemsBulk: async (items: MenuItemInput[]): Promise<MenuItem[]> => {
+    const res = await api.post('/admin/menu/bulk', { items })
+    return res.data.data ?? []
   },
 
   toggleItemAvailability: async (id: string, isAvailable: boolean) => {
@@ -234,7 +243,9 @@ export const adminApi = {
     const formData = new FormData()
     formData.append('image', file)
     const res = await api.post('/admin/upload', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
+      // Let the browser supply the multipart boundary. Manually setting this
+      // header is the common cause of malformed upload bodies.
+      headers: { 'Content-Type': undefined },
       timeout: 60000,
     })
     return res.data.data.url

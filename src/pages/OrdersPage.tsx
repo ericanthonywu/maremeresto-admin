@@ -10,13 +10,14 @@ import type { Order, OrderStatus } from '../types'
 
 const STATUS_LABELS: Record<OrderStatus, { label: string; bg: string; text: string }> = {
   pending: { label: 'Menunggu', bg: 'bg-amber-100', text: 'text-amber-800' },
-  accepted: { label: 'Diterima', bg: 'bg-blue-100', text: 'text-blue-800' },
-  preparing: { label: 'Disiapkan', bg: 'bg-indigo-100', text: 'text-indigo-800' },
-  ready: { label: 'Siap', bg: 'bg-emerald-100', text: 'text-emerald-800' },
-  on_the_way: { label: 'Diantar', bg: 'bg-cyan-100', text: 'text-cyan-800' },
-  picked_up: { label: 'Diambil', bg: 'bg-teal-100', text: 'text-teal-800' },
-  delivered: { label: 'Terkirim', bg: 'bg-green-100', text: 'text-green-800' },
-  completed: { label: 'Selesai', bg: 'bg-stone-100', text: 'text-stone-600' },
+  accepted: { label: 'Belum diantar', bg: 'bg-amber-100', text: 'text-amber-800' },
+  // Legacy values can still render safely before migration 8 is applied.
+  preparing: { label: 'Belum diantar', bg: 'bg-amber-100', text: 'text-amber-800' },
+  ready: { label: 'Belum diantar', bg: 'bg-amber-100', text: 'text-amber-800' },
+  on_the_way: { label: 'Belum diantar', bg: 'bg-amber-100', text: 'text-amber-800' },
+  picked_up: { label: 'Sedang diantar', bg: 'bg-emerald-100', text: 'text-emerald-800' },
+  delivered: { label: 'Sedang diantar', bg: 'bg-emerald-100', text: 'text-emerald-800' },
+  completed: { label: 'Sedang diantar', bg: 'bg-emerald-100', text: 'text-emerald-800' },
   rejected: { label: 'Ditolak', bg: 'bg-red-100', text: 'text-red-800' },
   cancelled: { label: 'Dibatalkan', bg: 'bg-red-50', text: 'text-red-600' },
   refunded: { label: 'Direfund', bg: 'bg-purple-100', text: 'text-purple-800' },
@@ -36,18 +37,16 @@ function canRefund(order: Order): boolean {
  * button never offers a transition the API will reject.
  */
 function nextStatusFor(order: Order): OrderStatus | null {
-  const isPickup = order.order_type === 'pickup'
   switch (order.status) {
     case 'pending':
       return 'accepted'
     case 'accepted':
-      return 'preparing'
+      return 'completed'
     case 'preparing':
       return 'ready'
     case 'ready':
-      return isPickup ? 'picked_up' : 'on_the_way'
+      return 'completed'
     case 'on_the_way':
-      return 'delivered'
     case 'delivered':
     case 'picked_up':
       return 'completed'
@@ -58,13 +57,9 @@ function nextStatusFor(order: Order): OrderStatus | null {
 
 const STATUS_FILTERS: Array<{ id: string; label: string }> = [
   { id: 'all', label: 'Semua' },
-  { id: 'pending', label: 'Menunggu' },
-  { id: 'accepted', label: 'Diterima' },
-  { id: 'preparing', label: 'Disiapkan' },
-  { id: 'ready', label: 'Siap' },
-  { id: 'on_the_way', label: 'Diantar' },
-  { id: 'delivered', label: 'Terkirim' },
-  { id: 'completed', label: 'Selesai' },
+  { id: 'accepted', label: 'Belum diantar' },
+  { id: 'completed', label: 'Sedang diantar' },
+  { id: 'rejected', label: 'Ditolak' },
   { id: 'cancelled', label: 'Dibatalkan' },
   { id: 'refunded', label: 'Direfund' },
 ]
@@ -77,6 +72,7 @@ export const OrdersPage: React.FC = () => {
 
   const [orders, setOrders] = useState<Order[]>([])
   const [total, setTotal] = useState(0)
+  const [statusCounts, setStatusCounts] = useState<Record<string, number>>({})
   const [statusFilter, setStatusFilter] = useState(searchParams.get('status') ?? 'all')
   const [searchInput, setSearchInput] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
@@ -117,6 +113,7 @@ export const OrdersPage: React.FC = () => {
       })
       setOrders(res.orders)
       setTotal(res.total)
+      setStatusCounts(res.statusCounts)
       setUnreadCount(res.unread)
     } catch (err) {
       setError(errorMessage(err, 'Gagal memuat daftar pesanan.'))
@@ -155,9 +152,9 @@ export const OrdersPage: React.FC = () => {
     const next = nextStatusFor(order)
     if (!next) return
 
-    // A courier must exist before an order can leave the outlet; open the
-    // assignment dialog rather than letting the request fail.
-    if (next === 'on_the_way' && !order.driver_name) {
+    // Staff use this action to signal that the selected courier has departed.
+    // Open assignment first if no courier has been recorded yet.
+    if (next === 'completed' && order.order_type !== 'pickup' && !order.driver_name) {
       setDriverTarget(order)
       return
     }
@@ -204,7 +201,8 @@ export const OrdersPage: React.FC = () => {
     setSearchParams(next, { replace: true })
   }
 
-  const pendingCount = useMemo(() => orders.filter((o) => o.status === 'pending').length, [orders])
+  const pendingCount = statusCounts.pending ?? 0
+  const allStatusCount = useMemo(() => Object.values(statusCounts).reduce((sum, count) => sum + count, 0), [statusCounts])
 
   return (
     <div className="space-y-6">
@@ -254,7 +252,7 @@ export const OrdersPage: React.FC = () => {
                   : 'bg-white text-stone-600 border border-stone-200 hover:bg-stone-100'
               }`}
             >
-              {st.label}
+              {st.label} ({st.id === 'all' ? allStatusCount : (statusCounts[st.id] ?? 0)})
             </button>
           ))}
         </div>
@@ -272,7 +270,7 @@ export const OrdersPage: React.FC = () => {
             type="search"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Cari nomor, nama, atau telepon..."
+            placeholder="Cari nomor pesanan, nama, atau WhatsApp..."
             className="w-full pl-9 pr-3 py-2 bg-white border border-stone-300 rounded-xl text-xs focus:outline-none focus:border-brand-500"
           />
         </div>
@@ -349,9 +347,13 @@ export const OrdersPage: React.FC = () => {
                         <td className="px-4 py-3">
                           <span className="font-bold text-stone-900 block">{order.customer_name}</span>
                           <a
-                            href={`tel:${order.customer_phone}`}
-                            className="text-stone-400 font-mono text-[10px] hover:text-brand-600"
+                            href={`https://wa.me/${order.customer_phone.replace(/\D/g, '')}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title="Hubungi lewat WhatsApp"
+                            className="text-stone-400 font-mono text-[10px] hover:text-emerald-600 inline-flex items-center gap-1"
                           >
+                            <i className="fa-brands fa-whatsapp text-emerald-600" aria-hidden="true"></i>
                             {order.customer_phone}
                           </a>
                         </td>
@@ -401,8 +403,7 @@ export const OrdersPage: React.FC = () => {
 
                         <td className="px-4 py-3">
                           <div className="flex items-center justify-end gap-1.5">
-                            {order.order_type !== 'pickup' &&
-                              ['accepted', 'preparing', 'ready', 'on_the_way'].includes(order.status) && (
+                            {order.order_type !== 'pickup' && order.status === 'accepted' && (
                                 <button
                                   onClick={() => setDriverTarget(order)}
                                   disabled={busy}
@@ -426,11 +427,11 @@ export const OrdersPage: React.FC = () => {
                                 disabled={busy}
                                 className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg text-[10px] font-bold shadow-sm transition-all active:scale-95 whitespace-nowrap"
                               >
-                                {busy ? '...' : `→ ${STATUS_LABELS[next]?.label ?? next}`}
+                                {busy ? '...' : next === 'completed' ? '→ Mulai antar' : `→ ${STATUS_LABELS[next]?.label ?? next}`}
                               </button>
                             )}
 
-                            {(order.status === 'pending' || order.status === 'accepted') && (
+                            {order.status === 'accepted' && (
                               <button
                                 onClick={() => handleReject(order)}
                                 disabled={busy}

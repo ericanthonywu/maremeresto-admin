@@ -3,6 +3,7 @@ import { adminApi, errorMessage, formatRupiah } from '../api/client'
 import { useAuth } from '../context/AuthContext'
 import { MenuItemFormModal } from '../components/MenuItemFormModal'
 import { CategoryManagementModal } from '../components/CategoryManagementModal'
+import { BulkMenuItemModal } from '../components/BulkMenuItemModal'
 import type { Category, MenuItem } from '../types'
 
 type AvailabilityFilter = 'all' | 'available' | 'unavailable'
@@ -22,6 +23,7 @@ export const MenuManagementPage: React.FC = () => {
 
   const [formOpen, setFormOpen] = useState(false)
   const [categoryModalOpen, setCategoryModalOpen] = useState(false)
+	const [bulkModalOpen, setBulkModalOpen] = useState(false)
   const [editing, setEditing] = useState<MenuItem | null>(null)
   const [busyIds, setBusyIds] = useState<Set<string>>(new Set())
 
@@ -113,6 +115,11 @@ export const MenuManagementPage: React.FC = () => {
     showNotice(mode === 'created' ? `"${saved.name}" ditambahkan.` : `"${saved.name}" diperbarui.`)
   }
 
+  const handleBulkSaved = (saved: MenuItem[]) => {
+    setItems((current) => [...current, ...saved])
+    showNotice(`${saved.length} menu berhasil ditambahkan.`)
+  }
+
   const openCreate = () => {
     setEditing(null)
     setFormOpen(true)
@@ -179,6 +186,13 @@ export const MenuManagementPage: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2">
+		  <button
+			onClick={() => setBulkModalOpen(true)}
+			className="px-4 py-2.5 bg-white hover:bg-stone-50 text-stone-700 border border-stone-300 rounded-2xl text-xs font-bold shadow-sm flex items-center gap-2 transition-all active:scale-95"
+		  >
+			<i className="fa-solid fa-table-list text-brand-600" aria-hidden="true"></i>
+			<span>Tambah bulk</span>
+		  </button>
           <button
             onClick={() => setCategoryModalOpen(true)}
             className="px-4 py-2.5 bg-white hover:bg-stone-50 text-stone-700 border border-stone-300 rounded-2xl text-xs font-bold shadow-sm flex items-center gap-2 transition-all active:scale-95"
@@ -435,6 +449,14 @@ export const MenuManagementPage: React.FC = () => {
         onClose={() => setFormOpen(false)}
         onSaved={handleSaved}
       />
+
+	  <BulkMenuItemModal
+		isOpen={bulkModalOpen}
+		branchId={activeBranchId}
+		categories={categories}
+		onClose={() => setBulkModalOpen(false)}
+		onSaved={handleBulkSaved}
+	  />
 
       <CategoryManagementModal
         isOpen={categoryModalOpen}
