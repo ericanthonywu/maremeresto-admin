@@ -5,6 +5,7 @@ import { useAdminWebSocket } from '../context/AdminWebSocketContext'
 import { useAuth } from '../context/AuthContext'
 import { useNotifications } from '../context/NotificationContext'
 import { AssignDriverModal } from '../components/AssignDriverModal'
+import { RefundOrderModal } from '../components/RefundOrderModal'
 import type { Order, OrderStatus } from '../types'
 
 const STATUS_LABELS: Record<OrderStatus, { label: string; bg: string; text: string }> = {
@@ -18,6 +19,16 @@ const STATUS_LABELS: Record<OrderStatus, { label: string; bg: string; text: stri
   completed: { label: 'Selesai', bg: 'bg-stone-100', text: 'text-stone-600' },
   rejected: { label: 'Ditolak', bg: 'bg-red-100', text: 'text-red-800' },
   cancelled: { label: 'Dibatalkan', bg: 'bg-red-50', text: 'text-red-600' },
+  refunded: { label: 'Direfund', bg: 'bg-purple-100', text: 'text-purple-800' },
+}
+
+/**
+ * A refund can be issued from any status once the payment has settled,
+ * mirroring the server's rule in RefundPayment — not just the ordinary
+ * forward state machine. Already-refunded orders are excluded (terminal).
+ */
+function canRefund(order: Order): boolean {
+  return order.payment?.status === 'settlement' && order.status !== 'refunded'
 }
 
 /**
@@ -55,6 +66,7 @@ const STATUS_FILTERS: Array<{ id: string; label: string }> = [
   { id: 'delivered', label: 'Terkirim' },
   { id: 'completed', label: 'Selesai' },
   { id: 'cancelled', label: 'Dibatalkan' },
+  { id: 'refunded', label: 'Direfund' },
 ]
 
 export const OrdersPage: React.FC = () => {
@@ -73,6 +85,7 @@ export const OrdersPage: React.FC = () => {
   const [busyIds, setBusyIds] = useState<Set<string>>(new Set())
   const [expandedId, setExpandedId] = useState<string | null>(searchParams.get('highlight'))
   const [driverTarget, setDriverTarget] = useState<Order | null>(null)
+  const [refundTarget, setRefundTarget] = useState<Order | null>(null)
 
   const highlightId = searchParams.get('highlight')
   const highlightRef = useRef<HTMLTableRowElement | null>(null)
@@ -426,6 +439,17 @@ export const OrdersPage: React.FC = () => {
                                 Tolak
                               </button>
                             )}
+
+                            {canRefund(order) && (
+                              <button
+                                onClick={() => setRefundTarget(order)}
+                                disabled={busy}
+                                title="Refund pesanan lewat Midtrans"
+                                className="px-2.5 py-1 bg-purple-100 hover:bg-purple-200 disabled:opacity-50 text-purple-700 rounded-lg text-[10px] font-bold transition-all"
+                              >
+                                Refund
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -526,6 +550,14 @@ export const OrdersPage: React.FC = () => {
                                     Alasan: {order.rejection_reason}
                                   </p>
                                 )}
+                                {(order.payment?.refund_amount ?? 0) > 0 && (
+                                  <p className="text-[10px] text-purple-700 bg-purple-50 border border-purple-200 rounded-lg p-2 mt-2">
+                                    Direfund {formatRupiah(order.payment!.refund_amount)}
+                                    {order.payment?.refunded_at &&
+                                      ` pada ${new Date(order.payment.refunded_at).toLocaleString('id-ID')}`}
+                                    {order.payment?.refund_reason && ` — ${order.payment.refund_reason}`}
+                                  </p>
+                                )}
                               </div>
                             </div>
                           </td>
@@ -544,6 +576,12 @@ export const OrdersPage: React.FC = () => {
         order={driverTarget}
         onClose={() => setDriverTarget(null)}
         onAssigned={applyUpdated}
+      />
+
+      <RefundOrderModal
+        order={refundTarget}
+        onClose={() => setRefundTarget(null)}
+        onRefunded={applyUpdated}
       />
     </div>
   )

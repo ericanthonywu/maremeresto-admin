@@ -33,6 +33,15 @@ export const AdminWebSocketProvider: React.FC<{ children: React.ReactNode }> = (
   const orderListenersRef = useRef<Set<(order: Order) => void>>(new Set())
   const statusListenersRef = useRef<Set<(data: { order_id: string; status: string }) => void>>(new Set())
 
+  // The owner's socket stays joined to the network-wide 'owner' room even
+  // while switching outlets (the room name itself doesn't change), so the
+  // message handler below reads this ref rather than closing over a stale
+  // activeBranchId from whenever the socket was last (re)connected.
+  const scopeRef = useRef({ isOwner, activeBranchId })
+  useEffect(() => {
+    scopeRef.current = { isOwner, activeBranchId }
+  }, [isOwner, activeBranchId])
+
   // The owner watches the whole network; a branch admin watches only their own
   // outlet. The server enforces this too — joining another branch's room is
   // rejected — so the room here is a request, not a grant.
@@ -96,10 +105,18 @@ export const AdminWebSocketProvider: React.FC<{ children: React.ReactNode }> = (
       switch (msg.event) {
         case 'new_order': {
           const order = msg.payload as Order
-          // One place decides what a new order means: the notification layer
-          // raises the sound, desktop alert and badge, and listeners refresh
-          // their own data.
-          notifyNewOrder(order)
+          // The owner's room carries every outlet's orders, so the badge/sound/
+          // toast only fire for the outlet currently in view — otherwise the
+          // count and alerts stayed the same no matter which outlet was
+          // selected, which read as broken rather than "network-wide".
+          const { isOwner: ownerNow, activeBranchId: branchNow } = scopeRef.current
+          const inScope = !ownerNow || !branchNow || order.branch_id === branchNow
+          if (inScope) {
+            notifyNewOrder(order)
+          }
+          // Listeners (e.g. the Pesanan list) still hear about every order in
+          // scope of their own request; an out-of-scope order here is a cheap
+          // no-op refresh since their own query already excludes it.
           orderListenersRef.current.forEach((cb) => {
             try {
               cb(order)

@@ -153,9 +153,34 @@ export const adminApi = {
     return res.data.data
   },
 
+  /**
+   * Refunds a paid order through Midtrans. `amount` is optional — omit it (or
+   * pass 0) to refund whatever is still outstanding. Moves the order to the
+   * terminal "refunded" status on success.
+   */
+  refundOrder: async (
+    orderId: string,
+    reason: string,
+    expectedVersion: number,
+    amount?: number
+  ): Promise<Order> => {
+    const res = await api.post(`/admin/orders/${orderId}/refund`, {
+      amount: amount ?? 0,
+      reason,
+      expected_version: expectedVersion,
+    })
+    return res.data.data
+  },
+
   /** Clears the unread-order badge, which is backed by the database. */
-  acknowledgeOrders: async (orderIds?: string[]): Promise<{ acknowledged: number; unread: number }> => {
-    const res = await api.post('/admin/orders/acknowledge', orderIds ? { order_ids: orderIds } : {})
+  acknowledgeOrders: async (
+    orderIds?: string[],
+    branchId?: string
+  ): Promise<{ acknowledged: number; unread: number }> => {
+    const res = await api.post('/admin/orders/acknowledge', {
+      ...(orderIds ? { order_ids: orderIds } : {}),
+      ...(branchId ? { branch_id: branchId } : {}),
+    })
     return res.data.data
   },
 

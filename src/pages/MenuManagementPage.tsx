@@ -256,7 +256,8 @@ export const MenuManagementPage: React.FC = () => {
           ))}
         </select>
 
-        <div className="flex gap-1 bg-white border border-stone-300 rounded-xl p-1">
+        {/* Radio buttons filter */}
+        <div className="flex items-center gap-2 bg-white border border-stone-300 rounded-xl px-2.5 py-1.5 text-xs">
           {(
             [
               { id: 'all', label: 'Semua' },
@@ -264,20 +265,38 @@ export const MenuManagementPage: React.FC = () => {
               { id: 'unavailable', label: 'Habis' },
             ] as const
           ).map((opt) => (
-            <button
+            <label
               key={opt.id}
-              onClick={() => setAvailabilityFilter(opt.id)}
-              aria-pressed={availabilityFilter === opt.id}
-              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${
+              className={`inline-flex items-center gap-1.5 cursor-pointer px-2 py-0.5 rounded-lg text-[11px] font-bold transition-all ${
                 availabilityFilter === opt.id
-                  ? 'bg-brand-600 text-white'
-                  : 'text-stone-600 hover:bg-stone-100'
+                  ? 'bg-brand-50 text-brand-700'
+                  : 'text-stone-600 hover:text-stone-900'
               }`}
             >
-              {opt.label}
-            </button>
+              <input
+                type="radio"
+                name="availabilityFilter"
+                value={opt.id}
+                checked={availabilityFilter === opt.id}
+                onChange={() => setAvailabilityFilter(opt.id)}
+                className="w-3.5 h-3.5 text-brand-600 focus:ring-brand-500 cursor-pointer"
+              />
+              <span>{opt.label}</span>
+            </label>
           ))}
         </div>
+
+        {/* Quick action checkbox to hide out-of-stock items */}
+        <label className="inline-flex items-center gap-2 bg-white border border-stone-300 rounded-xl px-3 py-2 text-xs font-semibold text-stone-700 cursor-pointer hover:bg-stone-50 transition-colors select-none">
+          <input
+            type="checkbox"
+            checked={availabilityFilter === 'available'}
+            onChange={(e) => setAvailabilityFilter(e.target.checked ? 'available' : 'all')}
+            className="w-4 h-4 rounded text-brand-600 border-stone-300 focus:ring-brand-500 cursor-pointer"
+          />
+          <i className="fa-solid fa-eye-slash text-stone-400 text-xs" aria-hidden="true"></i>
+          <span>Sembunyikan menu stok habis</span>
+        </label>
       </div>
 
       {loading ? (
@@ -353,19 +372,29 @@ export const MenuManagementPage: React.FC = () => {
                             {formatRupiah(item.price)}
                           </span>
 
-                          <div className="flex items-center gap-1">
-                            <button
-                              onClick={() => handleToggleAvailability(item)}
-                              disabled={busy}
-                              title={item.is_available ? 'Tandai habis' : 'Tandai tersedia'}
-                              className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border transition-all disabled:opacity-50 ${
+                          <div className="flex items-center gap-1.5">
+                            {/* Quick action button / checkbox to hide item if stock is out */}
+                            <label
+                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[10px] font-bold border transition-all cursor-pointer select-none ${
                                 item.is_available
-                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                                  ? 'bg-stone-50 hover:bg-stone-100 text-stone-700 border-stone-200'
                                   : 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100'
-                              }`}
+                              } ${busy ? 'opacity-50 pointer-events-none' : ''}`}
+                              title={
+                                item.is_available
+                                  ? 'Centang untuk hide menu ini dari pesanan (stok habis)'
+                                  : 'Klik untuk mengaktifkan kembali menu (tersedia)'
+                              }
                             >
-                              {item.is_available ? 'Tersedia' : 'Habis'}
-                            </button>
+                              <input
+                                type="checkbox"
+                                checked={!item.is_available}
+                                onChange={() => handleToggleAvailability(item)}
+                                disabled={busy}
+                                className="w-3.5 h-3.5 rounded text-red-600 border-stone-300 focus:ring-red-500 cursor-pointer"
+                              />
+                              <span>{!item.is_available ? 'Stok Habis (Hide)' : 'Hide jika habis'}</span>
+                            </label>
 
                             <button
                               onClick={() => openEdit(item)}

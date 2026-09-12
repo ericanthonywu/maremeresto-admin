@@ -25,12 +25,14 @@ export const AdminLayout: React.FC = () => {
   )
 
   // Seed the unread badge from the database so a reload does not reset it.
+  // Scoped to the outlet in view — an owner switching outlets otherwise kept
+  // seeing the same (network-wide) count no matter which one was selected.
   useEffect(() => {
     if (!activeBranchId && !isOwner) return
 
     let cancelled = false
     adminApi
-      .getOrders({ status: 'pending', limit: 1 })
+      .getOrders({ status: 'pending', limit: 1, branch_id: isOwner ? (activeBranchId ?? undefined) : undefined })
       .then((res) => {
         if (!cancelled) setUnreadCount(res.unread)
       })

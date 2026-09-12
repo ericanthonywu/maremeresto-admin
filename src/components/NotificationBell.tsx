@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useNotifications } from '../context/NotificationContext'
+import { useAuth } from '../context/AuthContext'
 import { adminApi, formatRupiah } from '../api/client'
 
 /**
@@ -20,6 +21,7 @@ export const NotificationBell: React.FC = () => {
     requestDesktopPermission,
     testAlert,
   } = useNotifications()
+  const { isOwner, activeBranchId } = useAuth()
 
   const [open, setOpen] = useState(false)
   const [marking, setMarking] = useState(false)
@@ -46,7 +48,9 @@ export const NotificationBell: React.FC = () => {
   const handleMarkRead = async () => {
     setMarking(true)
     try {
-      const result = await adminApi.acknowledgeOrders()
+      // Scoped to the outlet in view: an owner marking these read must not
+      // silently clear every other outlet's backlog too.
+      const result = await adminApi.acknowledgeOrders(undefined, isOwner ? (activeBranchId ?? undefined) : undefined)
       setUnreadCount(result.unread)
       dismissAll()
     } catch {

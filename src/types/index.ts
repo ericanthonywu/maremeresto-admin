@@ -70,6 +70,7 @@ export type OrderStatus =
   | 'completed'
   | 'rejected'
   | 'cancelled'
+  | 'refunded'
 
 export interface Order {
   id: string
@@ -102,10 +103,13 @@ export interface Order {
   version: number
   items?: OrderItem[]
   payment?: {
-    status: 'pending' | 'settlement' | 'expire' | 'cancel'
+    status: 'pending' | 'settlement' | 'expire' | 'cancel' | 'refund'
     payment_method: string
     amount: number
     paid_at?: string
+    refund_amount: number
+    refund_reason?: string
+    refunded_at?: string
   }
   created_at: string
 }
