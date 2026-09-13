@@ -230,30 +230,37 @@ export const OrdersPage: React.FC = () => {
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex gap-1.5 overflow-x-auto scrollbar-none pb-1">
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-stone-200/90 shadow-sm">
+        <div className="flex gap-1.5 overflow-x-auto scrollbar-none py-0.5">
           {STATUS_FILTERS.map((st) => (
             <button
               key={st.id}
               onClick={() => handleFilterChange(st.id)}
               aria-pressed={statusFilter === st.id}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 ${
                 statusFilter === st.id
-                  ? 'bg-brand-600 text-white shadow'
-                  : 'bg-white text-stone-600 border border-stone-200 hover:bg-stone-100'
+                  ? 'bg-brand-600 text-white shadow-sm'
+                  : 'bg-stone-50 text-stone-600 hover:bg-stone-100 border border-stone-200/60'
               }`}
             >
-              {st.label} ({st.id === 'all' ? allStatusCount : (statusCounts[st.id] ?? 0)})
+              <span>{st.label}</span>
+              <span
+                className={`text-[10px] px-1.5 py-0.2 rounded-md font-mono ${
+                  statusFilter === st.id ? 'bg-white/20 text-white' : 'bg-stone-200/70 text-stone-700'
+                }`}
+              >
+                {st.id === 'all' ? allStatusCount : (statusCounts[st.id] ?? 0)}
+              </span>
             </button>
           ))}
         </div>
 
-        <div className="relative flex-1 min-w-[12rem]">
+        <div className="relative flex-1 min-w-[14rem]">
           <label htmlFor="order-search" className="sr-only">
             Cari pesanan
           </label>
           <i
-            className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 text-xs"
+            className="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 text-xs"
             aria-hidden="true"
           ></i>
           <input
@@ -262,8 +269,20 @@ export const OrdersPage: React.FC = () => {
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             placeholder="Cari nomor pesanan, nama, atau WhatsApp..."
-            className="w-full pl-9 pr-3 py-2 bg-white border border-stone-300 rounded-xl text-xs focus:outline-none focus:border-brand-500"
+            className="w-full pl-9 pr-8 py-2 bg-stone-50 border border-stone-300 rounded-xl text-xs focus:outline-none focus:border-brand-500 focus:bg-white transition-all"
           />
+          {searchInput && (
+            <button
+              onClick={() => {
+                setSearchInput('')
+                setSearchQuery('')
+              }}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 text-xs"
+              aria-label="Hapus pencarian"
+            >
+              <i className="fa-solid fa-xmark" aria-hidden="true"></i>
+            </button>
+          )}
         </div>
       </div>
 
