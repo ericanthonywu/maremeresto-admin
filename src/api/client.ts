@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { safeAssign } from '../utils/navigation'
 import type {
   Branch,
   BranchSettings,
@@ -39,7 +40,7 @@ api.interceptors.response.use(
       localStorage.removeItem(TOKEN_KEY)
       localStorage.removeItem(USER_KEY)
       if (!window.location.pathname.startsWith('/login')) {
-        window.location.assign('/login?expired=1')
+        safeAssign('/login?expired=1')
       }
     }
     return Promise.reject(error)

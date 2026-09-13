@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { Order } from '../types'
+import { safeAssign } from '../utils/navigation'
 
 const SOUND_PREF_KEY = 'olga_admin_sound_enabled'
 const BASE_TITLE = 'Mareme Group Admin'
@@ -141,7 +142,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
           })
           notification.onclick = () => {
             window.focus()
-            window.location.assign(`/orders?highlight=${order.id}`)
+            safeAssign(`/orders?highlight=${encodeURIComponent(order.id)}`)
           }
         } catch {
           // Some browsers throw when constructing notifications outside a
