@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useAdminWebSocket } from '../context/AdminWebSocketContext'
@@ -53,6 +53,11 @@ export const AdminLayout: React.FC = () => {
     { name: 'Kelola Menu', path: '/menu', icon: 'fa-solid fa-mug-hot' },
     { name: 'Pengaturan', path: '/settings', icon: 'fa-solid fa-sliders' },
   ]
+
+  const activeTitle = useMemo(
+    () => navItems.find((n) => location.pathname.startsWith(n.path))?.name ?? 'Dashboard',
+    [location.pathname]
+  )
 
   const navLinkClass = ({ isActive }: { isActive: boolean }) =>
     `flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all ${
@@ -206,7 +211,7 @@ export const AdminLayout: React.FC = () => {
 
             <div className="min-w-0">
               <h2 className="font-bold text-sm text-stone-900 truncate">
-                {navItems.find((n) => location.pathname.startsWith(n.path))?.name ?? 'Dashboard'}
+                {activeTitle}
               </h2>
               {activeBranch && (
                 <p className="text-[11px] text-stone-500 truncate">{activeBranch.name}</p>
