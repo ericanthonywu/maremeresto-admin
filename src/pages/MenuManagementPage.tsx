@@ -130,21 +130,33 @@ export const MenuManagementPage: React.FC = () => {
     setFormOpen(true)
   }
 
+  const searchableItems = useMemo(() => {
+    return items.map((i) => ({
+      item: i,
+      nameLower: i.name.toLowerCase(),
+      descriptionLower: i.description.toLowerCase(),
+      categoryNameLower: (i.category?.name ?? '').toLowerCase(),
+      tagLower: (i.tag ?? '').toLowerCase(),
+    }))
+  }, [items])
+
   const filteredItems = useMemo(() => {
     const query = searchQuery.trim().toLowerCase()
-    return items.filter((i) => {
-      if (categoryFilter !== 'all' && i.category_id !== categoryFilter) return false
-      if (availabilityFilter === 'available' && !i.is_available) return false
-      if (availabilityFilter === 'unavailable' && i.is_available) return false
-      if (!query) return true
-      return (
-        i.name.toLowerCase().includes(query) ||
-        i.description.toLowerCase().includes(query) ||
-        (i.category?.name ?? '').toLowerCase().includes(query) ||
-        (i.tag ?? '').toLowerCase().includes(query)
-      )
-    })
-  }, [items, categoryFilter, availabilityFilter, searchQuery])
+    return searchableItems
+      .filter(({ item, nameLower, descriptionLower, categoryNameLower, tagLower }) => {
+        if (categoryFilter !== 'all' && item.category_id !== categoryFilter) return false
+        if (availabilityFilter === 'available' && !item.is_available) return false
+        if (availabilityFilter === 'unavailable' && item.is_available) return false
+        if (!query) return true
+        return (
+          nameLower.includes(query) ||
+          descriptionLower.includes(query) ||
+          categoryNameLower.includes(query) ||
+          tagLower.includes(query)
+        )
+      })
+      .map(({ item }) => item)
+  }, [searchableItems, categoryFilter, availabilityFilter, searchQuery])
 
   const grouped = useMemo(() => {
     const map = new Map<string, MenuItem[]>()
