@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useAdminWebSocket } from '../context/AdminWebSocketContext'
@@ -54,45 +54,68 @@ export const AdminLayout: React.FC = () => {
     { name: 'Pengaturan', path: '/settings', icon: 'fa-solid fa-sliders' },
   ]
 
+  const activeTitle = useMemo(
+    () => navItems.find((n) => location.pathname.startsWith(n.path))?.name ?? 'Dashboard',
+    [location.pathname]
+  )
+
   const navLinkClass = ({ isActive }: { isActive: boolean }) =>
-    `flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+    `flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
       isActive
-        ? 'bg-brand-600 text-white shadow-lg'
-        : 'text-stone-300 hover:bg-stone-800 hover:text-white'
+        ? 'bg-brand-600/90 text-white shadow-md shadow-brand-900/40 ring-1 ring-brand-400/30'
+        : 'text-stone-400 hover:bg-stone-800/80 hover:text-stone-100'
     }`
+
+  // User initials avatar
+  const userInitials = user?.name
+    ? user.name
+        .split(' ')
+        .slice(0, 2)
+        .map((n) => n[0])
+        .join('')
+        .toUpperCase()
+    : 'U'
 
   const sidebarContent = (
     <>
-      <div>
-        <div className="p-6 border-b border-stone-800 flex items-center gap-3">
+      <div className="flex-1 overflow-y-auto custom-scrollbar">
+        {/* Brand header */}
+        <div className="p-5 border-b border-stone-800/80 flex items-center gap-3.5 bg-stone-900/40">
           <div
-            className="w-10 h-10 rounded-2xl bg-brand-600 flex items-center justify-center text-amber-200 text-xl shadow-lg shrink-0"
+            className="w-10 h-10 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center text-amber-200 text-lg shadow-lg ring-1 ring-brand-400/30 shrink-0"
             aria-hidden="true"
           >
             <i className={`fa-solid ${isOwner ? 'fa-crown' : 'fa-mug-hot'}`}></i>
           </div>
           <div className="min-w-0">
-            <span className="font-serif font-bold text-base block text-white leading-none">Mareme Group</span>
-            <span className="text-[11px] text-amber-400 font-medium">
+            <span className="font-serif font-bold text-base block text-white leading-tight tracking-tight">Mareme Group</span>
+            <span className="inline-flex items-center gap-1 text-[10px] text-amber-400 font-bold uppercase tracking-wider mt-0.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
               {isOwner ? 'HQ Portal' : 'Outlet Portal'}
             </span>
           </div>
         </div>
 
-        <div className="px-6 py-4 bg-stone-950/60 border-b border-stone-800 flex items-center justify-between gap-2">
-          <div className="min-w-0">
-            <span className="text-xs font-bold text-white block truncate">{user?.name}</span>
-            <span className="text-[10px] text-stone-400 font-mono block truncate">{user?.phone}</span>
+        {/* User Profile info card */}
+        <div className="p-4 mx-3 my-3 bg-stone-950/80 rounded-2xl border border-stone-800/80 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-xl bg-stone-800 text-stone-200 font-extrabold text-xs flex items-center justify-center shrink-0 border border-stone-700">
+              {userInitials}
+            </div>
+            <div className="min-w-0">
+              <span className="text-xs font-bold text-white block truncate">{user?.name}</span>
+              <span className="text-[10px] text-stone-400 font-mono block truncate">{user?.phone}</span>
+            </div>
           </div>
           <div
-            className="flex items-center gap-1.5 shrink-0"
-            title={isConnected ? 'Terhubung ke server pesanan' : 'Terputus dari server pesanan'}
+            className="flex items-center gap-1 px-2 py-1 rounded-lg bg-stone-900 border border-stone-800 shrink-0"
+            title={isConnected ? 'Terhubung ke server pesanan (WebSocket)' : 'Terputus dari server pesanan'}
           >
             <span
               className={`w-2 h-2 rounded-full ${isConnected ? 'bg-emerald-400 animate-pulse' : 'bg-red-500'}`}
               aria-hidden="true"
             ></span>
-            <span className="text-[9px] text-stone-400 uppercase font-bold">
+            <span className="text-[9px] text-stone-300 font-mono font-bold uppercase">
               {isConnected ? 'Live' : 'Off'}
             </span>
           </div>
@@ -206,7 +229,7 @@ export const AdminLayout: React.FC = () => {
 
             <div className="min-w-0">
               <h2 className="font-bold text-sm text-stone-900 truncate">
-                {navItems.find((n) => location.pathname.startsWith(n.path))?.name ?? 'Dashboard'}
+                {activeTitle}
               </h2>
               {activeBranch && (
                 <p className="text-[11px] text-stone-500 truncate">{activeBranch.name}</p>

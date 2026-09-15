@@ -226,15 +226,27 @@ export const SettingsPage: React.FC = () => {
       )}
 
       {/* Master open/closed switch */}
-      <div className="bg-white rounded-3xl p-6 border border-stone-200 shadow-sm flex items-center justify-between gap-4">
-        <div className="min-w-0">
-          <h3 className="font-serif font-bold text-sm text-stone-900">Status outlet</h3>
+      <div className="bg-white rounded-3xl p-6 border border-stone-200/90 shadow-sm flex items-center justify-between gap-4">
+        <div className="min-w-0 space-y-1">
+          <div className="flex items-center gap-2">
+            <h3 className="font-serif font-bold text-sm text-stone-900">Status Outlet Saat Ini</h3>
+            <span
+              className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${
+                branchOpen
+                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                  : 'bg-red-100 text-red-800 border border-red-300'
+              }`}
+            >
+              {branchOpen ? 'BUKA' : 'TUTUP'}
+            </span>
+          </div>
           <p className="text-[11px] text-stone-500">
             Mematikan ini menutup outlet segera, di luar jam operasional apa pun. Pelanggan tidak
             dapat membuat pesanan baru.
           </p>
           {activeBranch && !activeBranch.is_open_now && branchOpen && (
-            <p className="text-[11px] text-amber-700 mt-1">
+            <p className="text-[11px] text-amber-700 font-semibold mt-1">
+              <i className="fa-solid fa-clock mr-1" aria-hidden="true"></i>
               Saat ini di luar jam operasional, jadi outlet tetap tertutup bagi pelanggan.
             </p>
           )}
@@ -243,13 +255,14 @@ export const SettingsPage: React.FC = () => {
           onClick={handleToggleOpen}
           disabled={togglingOpen}
           aria-pressed={branchOpen}
-          className={`px-4 py-2.5 rounded-2xl text-xs font-bold shadow-sm transition-all disabled:opacity-50 shrink-0 ${
+          className={`px-5 py-2.5 rounded-2xl text-xs font-bold shadow-sm transition-all disabled:opacity-50 shrink-0 flex items-center gap-2 ${
             branchOpen
-              ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-              : 'bg-red-600 hover:bg-red-700 text-white'
+              ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-900/20'
+              : 'bg-red-600 hover:bg-red-700 text-white shadow-red-900/20'
           }`}
         >
-          {togglingOpen ? '...' : branchOpen ? 'Buka' : 'Tutup'}
+          <i className={`fa-solid ${branchOpen ? 'fa-store' : 'fa-store-slash'}`} aria-hidden="true"></i>
+          <span>{togglingOpen ? '...' : branchOpen ? 'Tandai Tutup' : 'Tandai Buka'}</span>
         </button>
       </div>
 

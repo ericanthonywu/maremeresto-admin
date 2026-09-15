@@ -1,6 +1,8 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type { Branch, User } from '../types'
+
 import { adminApi, TOKEN_KEY, USER_KEY } from '../api/client'
+import { safeAssign } from '../utils/navigation'
 
 interface AuthContextType {
   user: User | null
@@ -40,19 +42,14 @@ function readStoredUser(): User | null {
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(readStoredUser)
-  const [initializing, setInitializing] = useState(Boolean(localStorage.getItem(TOKEN_KEY)))
+  const [initializing, setInitializing] = useState(true)
   const [branches, setBranches] = useState<Branch[]>([])
   const [activeBranchId, setActiveBranchIdState] = useState<string | null>(null)
 
-  // Validate the stored token on boot. A cached user object alone is not proof
+  // Validate the session cookie on boot. A cached user object alone is not proof
   // of a live session, so the app used to render the dashboard for an expired
   // login and then fail every request.
   useEffect(() => {
-    if (!localStorage.getItem(TOKEN_KEY)) {
-      setInitializing(false)
-      return
-    }
-
     let cancelled = false
     adminApi
       .getCurrentUser()
@@ -110,7 +107,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     adminApi.logout()
     setUser(null)
     localStorage.removeItem(ACTIVE_BRANCH_KEY)
-    window.location.assign('/login')
+    safeAssign('/login')
   }, [])
 
   const setActiveBranchId = useCallback(
@@ -123,9 +120,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     [user?.role]
   )
 
+  const branchesMap = useMemo(
+    () => new Map(branches.map((b) => [b.id, b])),
+    [branches]
+  )
+
   const activeBranch = useMemo(
-    () => branches.find((b) => b.id === activeBranchId) ?? null,
-    [branches, activeBranchId]
+    () => (activeBranchId ? branchesMap.get(activeBranchId) ?? null : null),
+    [branchesMap, activeBranchId]
   )
 
   const value = useMemo(
