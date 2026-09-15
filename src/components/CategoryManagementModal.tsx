@@ -16,6 +16,79 @@ const COMMON_EMOJIS = [
   '🍲', '🥟', '🥪', '🍳', '🧇', '🥞', '🍩', '🍪', '🍫', '🍽️',
 ]
 
+interface CategoryRowProps {
+  cat: Category
+  itemCount: number
+  isBusy: boolean
+  isCurrentlyEditing: boolean
+  onEdit: (cat: Category) => void
+  onDelete: (cat: Category) => void
+}
+
+const CategoryRow: React.FC<CategoryRowProps> = ({
+  cat,
+  itemCount,
+  isBusy,
+  isCurrentlyEditing,
+  onEdit,
+  onDelete,
+}) => {
+  return (
+    <div
+      className={`p-3 flex items-center justify-between gap-3 transition-colors ${
+        isCurrentlyEditing ? 'bg-brand-50/50' : 'hover:bg-stone-50'
+      }`}
+    >
+      <div className="flex items-center gap-3 min-w-0">
+        <span className="w-9 h-9 text-lg rounded-xl bg-stone-100 flex items-center justify-center shrink-0 shadow-inner">
+          {cat.emoji || '🍽️'}
+        </span>
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-bold text-xs text-stone-900 truncate">
+              {cat.name}
+            </span>
+            <span className="text-[10px] text-stone-400 font-mono bg-stone-100 px-1.5 py-0.5 rounded">
+              #{cat.sort_order}
+            </span>
+          </div>
+          <span className="text-[10px] text-stone-500 block mt-0.5">
+            {itemCount > 0 ? `${itemCount} item menu terhubung` : 'Belum ada menu terhubung'}
+          </span>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-1.5 shrink-0">
+        <button
+          type="button"
+          onClick={() => onEdit(cat)}
+          title={`Ubah kategori ${cat.name}`}
+          className="p-1.5 text-stone-400 hover:text-brand-600 rounded-lg hover:bg-stone-100 transition-colors"
+        >
+          <i className="fa-solid fa-pen text-xs" aria-hidden="true"></i>
+        </button>
+        <button
+          type="button"
+          onClick={() => onDelete(cat)}
+          disabled={isBusy || itemCount > 0}
+          title={
+            itemCount > 0
+              ? `Tidak dapat dihapus: digunakan oleh ${itemCount} menu`
+              : `Hapus kategori ${cat.name}`
+          }
+          className="p-1.5 text-stone-400 hover:text-red-600 rounded-lg hover:bg-red-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+        >
+          {isBusy ? (
+            <i className="fa-solid fa-circle-notch fa-spin text-xs" aria-hidden="true"></i>
+          ) : (
+            <i className="fa-solid fa-trash text-xs" aria-hidden="true"></i>
+          )}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export const CategoryManagementModal: React.FC<CategoryManagementModalProps> = ({
   isOpen,
   categories,
@@ -317,59 +390,15 @@ export const CategoryManagementModal: React.FC<CategoryManagementModalProps> = (
                   const isCurrentlyEditing = editingCat?.id === cat.id
 
                   return (
-                    <div
+                    <CategoryRow
                       key={cat.id}
-                      className={`p-3 flex items-center justify-between gap-3 transition-colors ${
-                        isCurrentlyEditing ? 'bg-brand-50/50' : 'hover:bg-stone-50'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <span className="w-9 h-9 text-lg rounded-xl bg-stone-100 flex items-center justify-center shrink-0 shadow-inner">
-                          {cat.emoji || '🍽️'}
-                        </span>
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-bold text-xs text-stone-900 truncate">
-                              {cat.name}
-                            </span>
-                            <span className="text-[10px] text-stone-400 font-mono bg-stone-100 px-1.5 py-0.5 rounded">
-                              #{cat.sort_order}
-                            </span>
-                          </div>
-                          <span className="text-[10px] text-stone-500 block mt-0.5">
-                            {itemCount > 0 ? `${itemCount} item menu terhubung` : 'Belum ada menu terhubung'}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => startEdit(cat)}
-                          title={`Ubah kategori ${cat.name}`}
-                          className="p-1.5 text-stone-400 hover:text-brand-600 rounded-lg hover:bg-stone-100 transition-colors"
-                        >
-                          <i className="fa-solid fa-pen text-xs" aria-hidden="true"></i>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(cat)}
-                          disabled={isBusy || itemCount > 0}
-                          title={
-                            itemCount > 0
-                              ? `Tidak dapat dihapus: digunakan oleh ${itemCount} menu`
-                              : `Hapus kategori ${cat.name}`
-                          }
-                          className="p-1.5 text-stone-400 hover:text-red-600 rounded-lg hover:bg-red-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                        >
-                          {isBusy ? (
-                            <i className="fa-solid fa-circle-notch fa-spin text-xs" aria-hidden="true"></i>
-                          ) : (
-                            <i className="fa-solid fa-trash text-xs" aria-hidden="true"></i>
-                          )}
-                        </button>
-                      </div>
-                    </div>
+                      cat={cat}
+                      itemCount={itemCount}
+                      isBusy={isBusy}
+                      isCurrentlyEditing={isCurrentlyEditing}
+                      onEdit={startEdit}
+                      onDelete={handleDelete}
+                    />
                   )
                 })}
               </div>
