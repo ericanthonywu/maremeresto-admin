@@ -38,12 +38,28 @@ api.interceptors.response.use(
   }
 )
 
+/**
+ * Sanitizes an error message string by encoding dangerous HTML special characters
+ * to prevent potential XSS injection when rendered or interpolated.
+ */
+export function sanitizeError(msg: string): string {
+  return msg
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .trim()
+}
 export const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
 
 export function errorMessage(err: unknown, fallback = 'Terjadi kesalahan. Silakan coba lagi.'): string {
   if (axios.isAxiosError(err)) {
     const apiError = err.response?.data?.error
-    if (typeof apiError === 'string' && apiError.trim()) return apiError
+    if (typeof apiError === 'string' && apiError.trim()) {
+      const sanitized = sanitizeError(apiError)
+      if (sanitized) return sanitized
+    }
     if (err.code === 'ECONNABORTED') return 'Koneksi timeout. Periksa jaringan dan coba lagi.'
     if (!err.response) return 'Tidak dapat menghubungi server.'
   }
