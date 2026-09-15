@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type { Branch, User } from '../types'
 import { adminApi, TOKEN_KEY, USER_KEY } from '../api/client'
+import { safeAssign } from '../utils/navigation'
 
 interface AuthContextType {
   user: User | null
@@ -110,7 +111,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     adminApi.logout()
     setUser(null)
     localStorage.removeItem(ACTIVE_BRANCH_KEY)
-    window.location.assign('/login')
+    safeAssign('/login')
   }, [])
 
   const setActiveBranchId = useCallback(
