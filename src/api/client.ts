@@ -38,6 +38,8 @@ api.interceptors.response.use(
   }
 )
 
+export const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+
 export function errorMessage(err: unknown, fallback = 'Terjadi kesalahan. Silakan coba lagi.'): string {
   if (axios.isAxiosError(err)) {
     const apiError = err.response?.data?.error
@@ -45,6 +47,7 @@ export function errorMessage(err: unknown, fallback = 'Terjadi kesalahan. Silaka
     if (err.code === 'ECONNABORTED') return 'Koneksi timeout. Periksa jaringan dan coba lagi.'
     if (!err.response) return 'Tidak dapat menghubungi server.'
   }
+  if (err instanceof Error && err.message) return err.message
   return fallback
 }
 
@@ -223,6 +226,9 @@ export const adminApi = {
   },
 
   uploadImage: async (file: File): Promise<string> => {
+    if (!file || !file.type || !ALLOWED_IMAGE_TYPES.includes(file.type.toLowerCase())) {
+      throw new Error('Tipe file tidak valid. Hanya gambar (JPG, PNG, GIF, atau WebP) yang diperbolehkan.')
+    }
     const formData = new FormData()
     formData.append('image', file)
     const res = await api.post('/admin/upload', formData, {
