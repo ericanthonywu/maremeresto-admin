@@ -1,7 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type { Branch, User } from '../types'
 
-import { adminApi, TOKEN_KEY, USER_KEY } from '../api/client'
+import { adminApi, USER_KEY } from '../api/client'
 import { safeAssign } from '../utils/navigation'
 
 interface AuthContextType {
