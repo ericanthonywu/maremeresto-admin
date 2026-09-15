@@ -47,6 +47,17 @@ function useChime() {
 
   const play = useCallback(() => {
     try {
+      // Play spoken voice announcement "Ada orderan online baru"
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel()
+        const utterance = new SpeechSynthesisUtterance('Ada orderan online baru')
+        utterance.lang = 'id-ID'
+        utterance.volume = 1.0 // Maximize volume
+        utterance.rate = 1.0
+        utterance.pitch = 1.0
+        window.speechSynthesis.speak(utterance)
+      }
+
       type AudioCtor = typeof AudioContext
       const Ctor: AudioCtor | undefined =
         window.AudioContext ?? (window as unknown as { webkitAudioContext?: AudioCtor }).webkitAudioContext
@@ -61,7 +72,7 @@ function useChime() {
       if (ctx.state === 'suspended') void ctx.resume()
 
       const now = ctx.currentTime
-      // Two ascending notes, a perfect fifth apart.
+      // Two ascending notes at maximum volume
       for (const [index, frequency] of [880, 1320].entries()) {
         const osc = ctx.createOscillator()
         const gain = ctx.createGain()
@@ -71,7 +82,7 @@ function useChime() {
 
         const start = now + index * 0.18
         gain.gain.setValueAtTime(0, start)
-        gain.gain.linearRampToValueAtTime(0.28, start + 0.02)
+        gain.gain.linearRampToValueAtTime(1.0, start + 0.02)
         gain.gain.exponentialRampToValueAtTime(0.001, start + 0.32)
 
         osc.connect(gain).connect(ctx.destination)

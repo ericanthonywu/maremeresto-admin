@@ -15,6 +15,8 @@ const AdminWebSocketContext = createContext<AdminWebSocketContextType | undefine
 
 const BASE_RECONNECT_DELAY = 1000
 const MAX_RECONNECT_DELAY = 20000
+const PING_INTERVAL = 25000
+const PONG_TIMEOUT = 10000
 
 export const AdminWebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, activeBranchId, isOwner } = useAuth()
@@ -25,6 +27,8 @@ export const AdminWebSocketProvider: React.FC<{ children: React.ReactNode }> = (
 
   const wsRef = useRef<WebSocket | null>(null)
   const reconnectTimerRef = useRef<number | undefined>(undefined)
+  const pingTimerRef = useRef<number | undefined>(undefined)
+  const pongTimeoutRef = useRef<number | undefined>(undefined)
   const attemptRef = useRef(0)
   const closedByUsRef = useRef(false)
   const connectRef = useRef<() => void>(() => {})
@@ -50,18 +54,52 @@ export const AdminWebSocketProvider: React.FC<{ children: React.ReactNode }> = (
     return activeBranchId ? `branch:${activeBranchId}` : null
   }, [user, isOwner, activeBranchId])
 
+  const stopHeartbeat = useCallback(() => {
+    window.clearInterval(pingTimerRef.current)
+    window.clearTimeout(pongTimeoutRef.current)
+    pingTimerRef.current = undefined
+    pongTimeoutRef.current = undefined
+  }, [])
+
   const scheduleReconnect = useCallback(() => {
     window.clearTimeout(reconnectTimerRef.current)
+    stopHeartbeat()
     const attempt = attemptRef.current++
     const delay = Math.min(BASE_RECONNECT_DELAY * 2 ** attempt, MAX_RECONNECT_DELAY)
     reconnectTimerRef.current = window.setTimeout(
       () => connectRef.current(),
       delay + Math.random() * 0.3 * delay
     )
-  }, [])
+  }, [stopHeartbeat])
+
+  const startHeartbeat = useCallback(
+    (ws: WebSocket) => {
+      stopHeartbeat()
+      pingTimerRef.current = window.setInterval(() => {
+        if (wsRef.current !== ws || ws.readyState !== WebSocket.OPEN) return
+
+        try {
+          ws.send(JSON.stringify({ event: 'ping' }))
+        } catch {
+          ws.close()
+          return
+        }
+
+        window.clearTimeout(pongTimeoutRef.current)
+        pongTimeoutRef.current = window.setTimeout(() => {
+          if (wsRef.current === ws) {
+            console.warn('Admin websocket heartbeat timeout, closing socket')
+            ws.close()
+          }
+        }, PONG_TIMEOUT)
+      }, PING_INTERVAL)
+    },
+    [stopHeartbeat]
+  )
 
   const connect = useCallback(() => {
     if (!room) return
+    window.clearTimeout(reconnectTimerRef.current)
     const existing = wsRef.current
     if (existing && (existing.readyState === WebSocket.OPEN || existing.readyState === WebSocket.CONNECTING)) {
       return
@@ -87,11 +125,17 @@ export const AdminWebSocketProvider: React.FC<{ children: React.ReactNode }> = (
     wsRef.current = ws
 
     ws.onopen = () => {
+      if (wsRef.current !== ws) return
       setIsConnected(true)
       attemptRef.current = 0
+      startHeartbeat(ws)
     }
 
     ws.onmessage = (event) => {
+      if (wsRef.current !== ws) return
+
+      window.clearTimeout(pongTimeoutRef.current)
+
       let msg: { event?: string; payload?: unknown }
       try {
         msg = JSON.parse(event.data)
@@ -100,6 +144,8 @@ export const AdminWebSocketProvider: React.FC<{ children: React.ReactNode }> = (
       }
 
       switch (msg.event) {
+        case 'pong':
+          break
         case 'new_order': {
           const order = msg.payload as Order
           // The owner's room carries every outlet's orders, so the badge/sound/
@@ -152,6 +198,8 @@ export const AdminWebSocketProvider: React.FC<{ children: React.ReactNode }> = (
     }
 
     ws.onclose = () => {
+      if (wsRef.current !== ws) return
+      stopHeartbeat()
       setIsConnected(false)
       if (!closedByUsRef.current) {
         setHasDropped(true)
@@ -159,8 +207,11 @@ export const AdminWebSocketProvider: React.FC<{ children: React.ReactNode }> = (
       }
     }
 
-    ws.onerror = () => ws.close()
-  }, [room, user, notifyNewOrder, scheduleReconnect])
+    ws.onerror = () => {
+      if (wsRef.current !== ws) return
+      ws.close()
+    }
+  }, [room, notifyNewOrder, scheduleReconnect, startHeartbeat, stopHeartbeat])
 
   useEffect(() => {
     connectRef.current = connect
@@ -172,6 +223,7 @@ export const AdminWebSocketProvider: React.FC<{ children: React.ReactNode }> = (
     // Rebuild the socket when the watched room changes (the owner switching
     // outlets), so events are never delivered for the wrong outlet.
     closedByUsRef.current = true
+    stopHeartbeat()
     wsRef.current?.close()
     wsRef.current = null
     closedByUsRef.current = false
@@ -191,10 +243,11 @@ export const AdminWebSocketProvider: React.FC<{ children: React.ReactNode }> = (
       document.removeEventListener('visibilitychange', onWake)
       window.removeEventListener('online', onWake)
       window.clearTimeout(reconnectTimerRef.current)
+      stopHeartbeat()
       closedByUsRef.current = true
       wsRef.current?.close()
     }
-  }, [room, connect])
+  }, [room, connect, stopHeartbeat])
 
   const subscribeToOrders = useCallback((onNewOrder: (order: Order) => void) => {
     orderListenersRef.current.add(onNewOrder)
