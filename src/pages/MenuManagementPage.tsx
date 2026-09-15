@@ -130,9 +130,13 @@ export const MenuManagementPage: React.FC = () => {
     setFormOpen(true)
   }
 
+  const sortedItems = useMemo(() => {
+    return [...items].sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name))
+  }, [items])
+
   const filteredItems = useMemo(() => {
     const query = searchQuery.trim().toLowerCase()
-    return items.filter((i) => {
+    return sortedItems.filter((i) => {
       if (categoryFilter !== 'all' && i.category_id !== categoryFilter) return false
       if (availabilityFilter === 'available' && !i.is_available) return false
       if (availabilityFilter === 'unavailable' && i.is_available) return false
@@ -144,7 +148,7 @@ export const MenuManagementPage: React.FC = () => {
         (i.tag ?? '').toLowerCase().includes(query)
       )
     })
-  }, [items, categoryFilter, availabilityFilter, searchQuery])
+  }, [sortedItems, categoryFilter, availabilityFilter, searchQuery])
 
   const grouped = useMemo(() => {
     const map = new Map<string, MenuItem[]>()
@@ -153,9 +157,6 @@ export const MenuManagementPage: React.FC = () => {
       const bucket = map.get(key)
       if (bucket) bucket.push(item)
       else map.set(key, [item])
-    }
-    for (const bucket of map.values()) {
-      bucket.sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name))
     }
     return map
   }, [filteredItems])
