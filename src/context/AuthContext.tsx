@@ -120,9 +120,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     [user?.role]
   )
 
+  const branchesMap = useMemo(
+    () => new Map(branches.map((b) => [b.id, b])),
+    [branches]
+  )
+
   const activeBranch = useMemo(
-    () => branches.find((b) => b.id === activeBranchId) ?? null,
-    [branches, activeBranchId]
+    () => (activeBranchId ? branchesMap.get(activeBranchId) ?? null : null),
+    [branchesMap, activeBranchId]
   )
 
   const value = useMemo(
