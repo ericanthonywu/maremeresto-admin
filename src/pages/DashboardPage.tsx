@@ -12,23 +12,23 @@ const DeltaBadge: React.FC<{ value: number | null; label?: string }> = ({
   label = 'vs kemarin',
 }) => {
   if (value === null || !Number.isFinite(value)) {
-    return <p className="text-[11px] text-stone-400 font-medium mt-1">Belum ada data pembanding</p>
+    return <span className="text-[10px] text-stone-400 font-medium inline-block mt-2">Belum ada data pembanding</span>
   }
 
   const rising = value >= 0
   return (
-    <p
-      className={`text-[11px] font-bold mt-1 flex items-center gap-1 ${
-        rising ? 'text-emerald-600' : 'text-red-600'
+    <span
+      className={`inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-full mt-2 ${
+        rising ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'
       }`}
     >
       <i
-        className={`fa-solid ${rising ? 'fa-arrow-up' : 'fa-arrow-down'} text-[9px]`}
+        className={`fa-solid ${rising ? 'fa-arrow-up' : 'fa-arrow-down'} text-[8px]`}
         aria-hidden="true"
       ></i>
       {rising ? '+' : ''}
       {value.toFixed(1)}% {label}
-    </p>
+    </span>
   )
 }
 
@@ -143,60 +143,60 @@ export const DashboardPage: React.FC = () => {
 
       {/* Stat tiles. Every number, including the deltas, comes from the API. */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white rounded-3xl p-5 border border-stone-200 shadow-sm">
-          <div className="flex items-center justify-between mb-2 gap-2">
-            <span className="text-[11px] text-stone-400 font-bold uppercase tracking-wider">
-              Pesanan hari ini
+        <div className="bg-white rounded-3xl p-5 border border-stone-200/90 shadow-sm hover:shadow-md transition-all">
+          <div className="flex items-center justify-between mb-3 gap-2">
+            <span className="text-[11px] text-stone-500 font-bold uppercase tracking-wider">
+              Pesanan Hari Ini
             </span>
             <div
-              className="w-8 h-8 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center shrink-0"
+              className="w-9 h-9 rounded-2xl bg-brand-50 border border-brand-100 text-brand-600 flex items-center justify-center shrink-0 shadow-inner"
               aria-hidden="true"
             >
               <i className="fa-solid fa-receipt text-sm"></i>
             </div>
           </div>
-          <span className="text-2xl font-extrabold text-stone-900">
+          <div className="text-2xl sm:text-3xl font-extrabold text-stone-900 font-mono">
             {loading ? '—' : stats?.total_orders ?? 0}
-          </span>
+          </div>
           {!loading && <DeltaBadge value={stats?.orders_delta_pct ?? null} />}
         </div>
 
-        <div className="bg-white rounded-3xl p-5 border border-stone-200 shadow-sm">
-          <div className="flex items-center justify-between mb-2 gap-2">
-            <span className="text-[11px] text-stone-400 font-bold uppercase tracking-wider">
-              Omset hari ini
+        <div className="bg-white rounded-3xl p-5 border border-stone-200/90 shadow-sm hover:shadow-md transition-all">
+          <div className="flex items-center justify-between mb-3 gap-2">
+            <span className="text-[11px] text-stone-500 font-bold uppercase tracking-wider">
+              Omset Hari Ini
             </span>
             <div
-              className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0"
+              className="w-9 h-9 rounded-2xl bg-emerald-50 border border-emerald-100 text-emerald-600 flex items-center justify-center shrink-0 shadow-inner"
               aria-hidden="true"
             >
               <i className="fa-solid fa-coins text-sm"></i>
             </div>
           </div>
-          <span className="text-xl sm:text-2xl font-extrabold text-stone-900 break-all">
+          <div className="text-xl sm:text-2xl font-extrabold text-stone-900 break-all font-mono">
             {loading ? '—' : formatRupiah(stats?.total_revenue ?? 0)}
-          </span>
+          </div>
           {!loading && <DeltaBadge value={stats?.revenue_delta_pct ?? null} />}
-          <p className="text-[10px] text-stone-400 mt-1">Tidak termasuk pesanan batal/ditolak</p>
+          <p className="text-[10px] text-stone-400 mt-1">Selesai / Lunas</p>
         </div>
 
-        <div className="bg-white rounded-3xl p-5 border border-stone-200 shadow-sm">
-          <div className="flex items-center justify-between mb-2 gap-2">
-            <span className="text-[11px] text-stone-400 font-bold uppercase tracking-wider">
-              Rata-rata/order
+        <div className="bg-white rounded-3xl p-5 border border-stone-200/90 shadow-sm hover:shadow-md transition-all">
+          <div className="flex items-center justify-between mb-3 gap-2">
+            <span className="text-[11px] text-stone-500 font-bold uppercase tracking-wider">
+              Rata-Rata / Order
             </span>
             <div
-              className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0"
+              className="w-9 h-9 rounded-2xl bg-amber-50 border border-amber-100 text-amber-600 flex items-center justify-center shrink-0 shadow-inner"
               aria-hidden="true"
             >
               <i className="fa-solid fa-chart-simple text-sm"></i>
             </div>
           </div>
-          <span className="text-xl sm:text-2xl font-extrabold text-stone-900 break-all">
+          <div className="text-xl sm:text-2xl font-extrabold text-stone-900 break-all font-mono">
             {loading ? '—' : formatRupiah(stats?.avg_order ?? 0)}
-          </span>
+          </div>
           {!loading && (
-            <p className="text-[11px] text-stone-400 font-medium mt-1">
+            <p className="text-[10px] text-stone-400 font-medium mt-2">
               {stats?.completed_orders ?? 0} selesai · {stats?.cancelled_orders ?? 0} batal
             </p>
           )}
@@ -204,24 +204,26 @@ export const DashboardPage: React.FC = () => {
 
         <Link
           to="/orders?status=pending"
-          className="bg-white rounded-3xl p-5 border border-stone-200 shadow-sm hover:border-brand-300 hover:shadow-md transition-all"
+          className="bg-white rounded-3xl p-5 border border-stone-200/90 shadow-sm hover:border-brand-300 hover:shadow-md transition-all group"
         >
-          <div className="flex items-center justify-between mb-2 gap-2">
-            <span className="text-[11px] text-stone-400 font-bold uppercase tracking-wider">
-              Menunggu
+          <div className="flex items-center justify-between mb-3 gap-2">
+            <span className="text-[11px] text-stone-500 font-bold uppercase tracking-wider">
+              Pesanan Menunggu
             </span>
             <div
-              className="w-8 h-8 rounded-xl bg-red-50 text-red-600 flex items-center justify-center shrink-0"
+              className={`w-9 h-9 rounded-2xl ${
+                (stats?.pending_orders ?? 0) > 0 ? 'bg-red-50 border border-red-200 text-red-600 animate-pulse' : 'bg-stone-50 border border-stone-200 text-stone-500'
+              } flex items-center justify-center shrink-0 shadow-inner`}
               aria-hidden="true"
             >
               <i className="fa-solid fa-clock text-sm"></i>
             </div>
           </div>
-          <span className="text-2xl font-extrabold text-stone-900">
+          <div className="text-2xl sm:text-3xl font-extrabold text-stone-900 font-mono">
             {loading ? '—' : stats?.pending_orders ?? 0}
-          </span>
-          <p className="text-[11px] text-brand-600 font-bold mt-1 flex items-center gap-1">
-            Buka daftar pesanan
+          </div>
+          <p className="text-[11px] text-brand-600 font-bold mt-2 flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
+            <span>Buka daftar pesanan</span>
             <i className="fa-solid fa-arrow-right text-[9px]" aria-hidden="true"></i>
           </p>
         </Link>

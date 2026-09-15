@@ -237,14 +237,14 @@ export const MenuManagementPage: React.FC = () => {
         </div>
       )}
 
-      {/* Filters */}
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative flex-1 min-w-[12rem]">
+      {/* Filters Toolbar */}
+      <div className="bg-white p-3 rounded-2xl border border-stone-200/90 shadow-sm flex flex-wrap items-center gap-3">
+        <div className="relative flex-1 min-w-[14rem]">
           <label htmlFor="menu-admin-search" className="sr-only">
             Cari menu
           </label>
           <i
-            className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 text-xs"
+            className="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 text-xs"
             aria-hidden="true"
           ></i>
           <input
@@ -253,7 +253,7 @@ export const MenuManagementPage: React.FC = () => {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Cari nama, deskripsi, atau label..."
-            className="w-full pl-9 pr-3 py-2 bg-white border border-stone-300 rounded-xl text-xs focus:outline-none focus:border-brand-500"
+            className="w-full pl-9 pr-3 py-2 bg-stone-50 border border-stone-300 rounded-xl text-xs focus:outline-none focus:border-brand-500 focus:bg-white transition-all"
           />
         </div>
 
@@ -261,9 +261,9 @@ export const MenuManagementPage: React.FC = () => {
           value={categoryFilter}
           onChange={(e) => setCategoryFilter(e.target.value)}
           aria-label="Filter kategori"
-          className="px-3 py-2 bg-white border border-stone-300 rounded-xl text-xs font-semibold focus:outline-none focus:border-brand-500"
+          className="px-3.5 py-2 bg-stone-50 border border-stone-300 rounded-xl text-xs font-semibold focus:outline-none focus:border-brand-500 transition-all cursor-pointer"
         >
-          <option value="all">Semua kategori</option>
+          <option value="all">Semua kategori ({categories.length})</option>
           {categories.map((c) => (
             <option key={c.id} value={c.id}>
               {c.emoji} {c.name}
@@ -271,8 +271,8 @@ export const MenuManagementPage: React.FC = () => {
           ))}
         </select>
 
-        {/* Radio buttons filter */}
-        <div className="flex items-center gap-2 bg-white border border-stone-300 rounded-xl px-2.5 py-1.5 text-xs">
+        {/* Availability Filter Pills */}
+        <div className="flex items-center bg-stone-100 p-1 rounded-xl gap-1 border border-stone-200/60">
           {(
             [
               { id: 'all', label: 'Semua' },
@@ -280,38 +280,20 @@ export const MenuManagementPage: React.FC = () => {
               { id: 'unavailable', label: 'Habis' },
             ] as const
           ).map((opt) => (
-            <label
+            <button
               key={opt.id}
-              className={`inline-flex items-center gap-1.5 cursor-pointer px-2 py-0.5 rounded-lg text-[11px] font-bold transition-all ${
+              type="button"
+              onClick={() => setAvailabilityFilter(opt.id)}
+              className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
                 availabilityFilter === opt.id
-                  ? 'bg-brand-50 text-brand-700'
-                  : 'text-stone-600 hover:text-stone-900'
+                  ? 'bg-white text-stone-900 shadow-sm'
+                  : 'text-stone-500 hover:text-stone-800'
               }`}
             >
-              <input
-                type="radio"
-                name="availabilityFilter"
-                value={opt.id}
-                checked={availabilityFilter === opt.id}
-                onChange={() => setAvailabilityFilter(opt.id)}
-                className="w-3.5 h-3.5 text-brand-600 focus:ring-brand-500 cursor-pointer"
-              />
-              <span>{opt.label}</span>
-            </label>
+              {opt.label}
+            </button>
           ))}
         </div>
-
-        {/* Quick action checkbox to hide out-of-stock items */}
-        <label className="inline-flex items-center gap-2 bg-white border border-stone-300 rounded-xl px-3 py-2 text-xs font-semibold text-stone-700 cursor-pointer hover:bg-stone-50 transition-colors select-none">
-          <input
-            type="checkbox"
-            checked={availabilityFilter === 'available'}
-            onChange={(e) => setAvailabilityFilter(e.target.checked ? 'available' : 'all')}
-            className="w-4 h-4 rounded text-brand-600 border-stone-300 focus:ring-brand-500 cursor-pointer"
-          />
-          <i className="fa-solid fa-eye-slash text-stone-400 text-xs" aria-hidden="true"></i>
-          <span>Sembunyikan menu stok habis</span>
-        </label>
       </div>
 
       {loading ? (

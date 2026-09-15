@@ -46,22 +46,22 @@ export const LoginPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-stone-950 flex items-center justify-center p-4">
-      <div className="w-full max-w-md space-y-8">
+    <div className="min-h-screen bg-gradient-to-br from-stone-950 via-stone-900 to-stone-950 flex items-center justify-center p-4">
+      <div className="w-full max-w-md space-y-8 animate-fade-in">
         <div className="text-center space-y-3">
           <div
-            className="w-16 h-16 rounded-3xl bg-brand-600 text-amber-200 flex items-center justify-center text-3xl mx-auto shadow-2xl"
+            className="w-16 h-16 rounded-3xl bg-gradient-to-br from-brand-500 to-brand-700 text-amber-200 flex items-center justify-center text-3xl mx-auto shadow-2xl shadow-brand-900/50 ring-1 ring-brand-400/30"
             aria-hidden="true"
           >
             <i className="fa-solid fa-mug-hot"></i>
           </div>
-          <h1 className="font-serif text-3xl font-bold text-white">Mareme Group</h1>
-          <p className="text-stone-400 text-xs">Portal Admin & Barista</p>
+          <h1 className="font-serif text-3xl font-bold text-white tracking-tight">Mareme Group</h1>
+          <p className="text-stone-400 text-xs font-medium">Portal Admin & Barista Outlet</p>
         </div>
 
         <form
           onSubmit={handleSubmit}
-          className="bg-stone-900/70 rounded-3xl p-8 border border-stone-800 shadow-2xl space-y-5"
+          className="bg-stone-900/80 backdrop-blur-md rounded-3xl p-8 border border-stone-800 shadow-2xl space-y-5"
         >
           <div>
             <label htmlFor="identifier" className="block text-xs font-bold text-stone-300 mb-1.5">
