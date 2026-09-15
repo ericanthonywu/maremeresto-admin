@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { safeAssign } from '../utils/navigation'
 import type {
   Branch,
   BranchSettings,
@@ -12,34 +13,25 @@ import type {
   User,
 } from '../types'
 
-export const TOKEN_KEY = 'olga_admin_token'
 export const USER_KEY = 'olga_admin_user'
 
 export const api = axios.create({
   baseURL: '/api/v1',
   headers: { 'Content-Type': 'application/json' },
   timeout: 20000,
+  withCredentials: true,
 })
 
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem(TOKEN_KEY)
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`
-  }
-  return config
-})
-
-// A rejected token means the 12-hour staff session expired. Drop it and send
+// A rejected session means the 12-hour staff session expired. Drop it and send
 // the operator back to the login screen rather than leaving them on a page
 // whose every request silently fails.
 api.interceptors.response.use(
   (res) => res,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem(TOKEN_KEY)
       localStorage.removeItem(USER_KEY)
       if (!window.location.pathname.startsWith('/login')) {
-        window.location.assign('/login?expired=1')
+        safeAssign('/login?expired=1')
       }
     }
     return Promise.reject(error)
@@ -59,6 +51,7 @@ export function sanitizeError(msg: string): string {
     .replace(/'/g, '&#39;')
     .trim()
 }
+export const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
 
 export function errorMessage(err: unknown, fallback = 'Terjadi kesalahan. Silakan coba lagi.'): string {
   if (axios.isAxiosError(err)) {
@@ -70,6 +63,7 @@ export function errorMessage(err: unknown, fallback = 'Terjadi kesalahan. Silaka
     if (err.code === 'ECONNABORTED') return 'Koneksi timeout. Periksa jaringan dan coba lagi.'
     if (!err.response) return 'Tidak dapat menghubungi server.'
   }
+  if (err instanceof Error && err.message) return err.message
   return fallback
 }
 
@@ -86,7 +80,6 @@ export const adminApi = {
   login: async (identifier: string, password: string): Promise<{ token: string; user: User }> => {
     const res = await api.post('/auth/admin-login', { identifier, password })
     const data = res.data.data
-    localStorage.setItem(TOKEN_KEY, data.token)
     localStorage.setItem(USER_KEY, JSON.stringify(data.user))
     return data
   },
@@ -97,7 +90,6 @@ export const adminApi = {
   },
 
   logout: () => {
-    localStorage.removeItem(TOKEN_KEY)
     localStorage.removeItem(USER_KEY)
   },
 
@@ -250,6 +242,9 @@ export const adminApi = {
   },
 
   uploadImage: async (file: File): Promise<string> => {
+    if (!file || !file.type || !ALLOWED_IMAGE_TYPES.includes(file.type.toLowerCase())) {
+      throw new Error('Tipe file tidak valid. Hanya gambar (JPG, PNG, GIF, atau WebP) yang diperbolehkan.')
+    }
     const formData = new FormData()
     formData.append('image', file)
     const res = await api.post('/admin/upload', formData, {

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { errorMessage } from '../api/client'
+import { isSafeRelativeUrl } from '../utils/navigation'
 
 export const LoginPage: React.FC = () => {
   const { login } = useAuth()
@@ -33,7 +34,9 @@ export const LoginPage: React.FC = () => {
     setIsLoading(true)
     try {
       await login(identifier.trim(), password)
-      navigate('/dashboard', { replace: true })
+      const redirectParam = searchParams.get('redirect')
+      const target = redirectParam && isSafeRelativeUrl(redirectParam) ? redirectParam : '/dashboard'
+      navigate(target, { replace: true })
     } catch (err) {
       setError(errorMessage(err, 'Login gagal. Periksa email dan password Anda.'))
       setPassword('')
