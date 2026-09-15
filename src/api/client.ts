@@ -13,31 +13,22 @@ import type {
   User,
 } from '../types'
 
-export const TOKEN_KEY = 'olga_admin_token'
 export const USER_KEY = 'olga_admin_user'
 
 export const api = axios.create({
   baseURL: '/api/v1',
   headers: { 'Content-Type': 'application/json' },
   timeout: 20000,
+  withCredentials: true,
 })
 
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem(TOKEN_KEY)
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`
-  }
-  return config
-})
-
-// A rejected token means the 12-hour staff session expired. Drop it and send
+// A rejected session means the 12-hour staff session expired. Drop it and send
 // the operator back to the login screen rather than leaving them on a page
 // whose every request silently fails.
 api.interceptors.response.use(
   (res) => res,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem(TOKEN_KEY)
       localStorage.removeItem(USER_KEY)
       if (!window.location.pathname.startsWith('/login')) {
         safeAssign('/login?expired=1')
@@ -70,7 +61,6 @@ export const adminApi = {
   login: async (identifier: string, password: string): Promise<{ token: string; user: User }> => {
     const res = await api.post('/auth/admin-login', { identifier, password })
     const data = res.data.data
-    localStorage.setItem(TOKEN_KEY, data.token)
     localStorage.setItem(USER_KEY, JSON.stringify(data.user))
     return data
   },
@@ -81,7 +71,6 @@ export const adminApi = {
   },
 
   logout: () => {
-    localStorage.removeItem(TOKEN_KEY)
     localStorage.removeItem(USER_KEY)
   },
 

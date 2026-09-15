@@ -1,7 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from './AuthContext'
 import { useNotifications } from './NotificationContext'
-import { TOKEN_KEY } from '../api/client'
 import type { Order } from '../types'
 
 interface AdminWebSocketContextType {
@@ -68,8 +67,7 @@ export const AdminWebSocketProvider: React.FC<{ children: React.ReactNode }> = (
       return
     }
 
-    const token = localStorage.getItem(TOKEN_KEY)
-    if (!token) return
+    if (!user) return
 
     closedByUsRef.current = false
 
@@ -78,7 +76,6 @@ export const AdminWebSocketProvider: React.FC<{ children: React.ReactNode }> = (
     // the network instead of only on the developer's machine.
     const url = new URL(`${protocol}//${window.location.host}/api/v1/ws`)
     url.searchParams.set('room', room)
-    url.searchParams.set('token', token)
 
     let ws: WebSocket
     try {
@@ -163,7 +160,7 @@ export const AdminWebSocketProvider: React.FC<{ children: React.ReactNode }> = (
     }
 
     ws.onerror = () => ws.close()
-  }, [room, notifyNewOrder, scheduleReconnect])
+  }, [room, user, notifyNewOrder, scheduleReconnect])
 
   useEffect(() => {
     connectRef.current = connect
