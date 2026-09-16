@@ -195,3 +195,95 @@ export interface DashboardStats {
   hourly: HourlySalesPoint[]
   branches?: BranchSalesPoint[]
 }
+
+export interface OrderItemFeedback {
+  order_item_id: string
+  menu_item_id?: string
+  item_name: string
+  rating: number
+  reason?: string
+}
+
+export interface OrderFeedbackAdminItem {
+  order_id: string
+  order_number: string
+  customer_name: string
+  customer_phone: string
+  branch_id: string
+  branch_name: string
+  branch_slug: string
+  rating: number
+  resto_rating?: number
+  app_rating?: number
+  resto_reason?: string
+  app_reason?: string
+  comment?: string
+  items_feedback?: OrderItemFeedback[]
+  created_at: string
+  updated_at: string
+}
+
+export interface RatingCount {
+  rating: number
+  count: number
+  percentage: number
+}
+
+export interface BranchRatingSummary {
+  branch_id: string
+  branch_name: string
+  branch_slug: string
+  total_reviews: number
+  avg_overall_rating: number
+  avg_resto_rating: number
+  avg_app_rating: number
+}
+
+export interface MenuItemRatingSummary {
+  item_name: string
+  total_reviews: number
+  avg_rating: number
+  positive_count: number
+  negative_count: number
+  sample_reasons?: string[]
+}
+
+export interface CommonTagCount {
+  tag: string
+  count: number
+  is_positive: boolean
+}
+
+export interface FeedbackAnalytics {
+  total_reviews: number
+  avg_overall_rating: number
+  avg_resto_rating: number
+  avg_app_rating: number
+  satisfaction_rate: number
+  positive_count: number
+  constructive_count: number
+  rating_breakdown: RatingCount[]
+  branch_summaries: BranchRatingSummary[]
+  top_menu_items: MenuItemRatingSummary[]
+  needs_attention_items: MenuItemRatingSummary[]
+  common_tags: CommonTagCount[]
+}
+
+export interface FeedbackListResponse {
+  items: OrderFeedbackAdminItem[]
+  total: number
+  page: number
+  limit: number
+  total_pages: number
+}
+
+export interface FeedbackAISummaryResponse {
+  configured: boolean
+  model: string
+  executive_summary: string
+  detail_summary: string
+  actionable_suggestions: string[]
+  raw_analysis?: string
+  generated_at: string
+  error?: string
+}

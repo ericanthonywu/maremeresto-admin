@@ -50,6 +50,7 @@ export const AdminLayout: React.FC = () => {
   const navItems: NavItem[] = [
     { name: 'Dashboard', path: '/dashboard', icon: 'fa-solid fa-chart-line' },
     { name: 'Pesanan', path: '/orders', icon: 'fa-solid fa-receipt', badge: unreadCount },
+    { name: 'Rating & Ulasan', path: '/feedback', icon: 'fa-solid fa-star' },
     { name: 'Kelola Menu', path: '/menu', icon: 'fa-solid fa-mug-hot' },
     { name: 'Pengaturan', path: '/settings', icon: 'fa-solid fa-sliders' },
   ]

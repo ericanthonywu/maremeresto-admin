@@ -6,6 +6,9 @@ import type {
   Category,
   CategoryInput,
   DashboardStats,
+  FeedbackAISummaryResponse,
+  FeedbackAnalytics,
+  FeedbackListResponse,
   GeocodeResult,
   MenuItem,
   MenuItemInput,
@@ -277,6 +280,37 @@ export const adminApi = {
     const res = await api.get('/owner/dashboard', {
       params: branchId ? { branch_id: branchId } : undefined,
     })
+    return res.data.data
+  },
+
+  // ---- Feedback & AI Analytics ------------------------------------------
+  getFeedback: async (params?: {
+    branch_id?: string
+    rating?: number
+    search?: string
+    limit?: number
+    offset?: number
+  }): Promise<FeedbackListResponse> => {
+    const res = await api.get('/admin/feedback', { params })
+    return res.data.data
+  },
+
+  getFeedbackAnalytics: async (branchId?: string): Promise<FeedbackAnalytics> => {
+    const res = await api.get('/admin/feedback/analytics', {
+      params: branchId ? { branch_id: branchId } : undefined,
+    })
+    return res.data.data
+  },
+
+  getFeedbackAISummary: async (branchId?: string): Promise<FeedbackAISummaryResponse> => {
+    const res = await api.post(
+      '/admin/feedback/ai-summary',
+      {},
+      {
+        params: branchId ? { branch_id: branchId } : undefined,
+        timeout: 45000,
+      }
+    )
     return res.data.data
   },
 }

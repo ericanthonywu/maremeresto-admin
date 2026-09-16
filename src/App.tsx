@@ -10,6 +10,7 @@ import { LoginPage } from './pages/LoginPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { OrdersPage } from './pages/OrdersPage'
 import { MenuManagementPage } from './pages/MenuManagementPage'
+import { FeedbackPage } from './pages/FeedbackPage'
 import { SettingsPage } from './pages/SettingsPage'
 
 const queryClient = new QueryClient({
@@ -53,6 +54,7 @@ const AppRoutes: React.FC = () => {
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/orders" element={<OrdersPage />} />
         <Route path="/menu" element={<MenuManagementPage />} />
+        <Route path="/feedback" element={<FeedbackPage />} />
         <Route path="/settings" element={<SettingsPage />} />
       </Route>
 
