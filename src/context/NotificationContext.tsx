@@ -50,7 +50,7 @@ function useChime() {
       // Play spoken voice announcement "Ada orderan online baru"
       if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
         window.speechSynthesis.cancel()
-        const utterance = new SpeechSynthesisUtterance('Ada orderan online baru')
+        const utterance = new SpeechSynthesisUtterance('Ada orderan baru')
         utterance.lang = 'id-ID'
         utterance.volume = 1.0 // Maximize volume
         utterance.rate = 1.0
