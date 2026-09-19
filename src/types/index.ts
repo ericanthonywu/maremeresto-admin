@@ -2,9 +2,38 @@ export interface User {
   id: string
   name: string
   phone: string
+  email?: string
+  username?: string
   role: 'branch_admin' | 'owner'
   branch_id?: string
 }
+
+export interface BranchCredentials {
+  branch_id: string
+  branch_name: string
+  branch_slug: string
+  user_id?: string
+  name: string
+  username: string
+  email: string
+  phone: string
+  has_password: boolean
+  updated_at?: string
+}
+
+export interface UpdateBranchCredentialsInput {
+  username: string
+  password?: string
+  name?: string
+  email?: string
+  phone?: string
+}
+
+export interface ChangePasswordInput {
+  current_password: string
+  new_password: string
+}
+
 
 export interface Branch {
   id: string

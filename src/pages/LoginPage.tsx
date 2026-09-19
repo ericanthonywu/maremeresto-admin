@@ -27,7 +27,7 @@ export const LoginPage: React.FC = () => {
     setError(null)
 
     if (!identifier.trim() || !password) {
-      setError('Email dan password wajib diisi.')
+      setError('Username, email, atau password wajib diisi.')
       return
     }
 
@@ -38,7 +38,7 @@ export const LoginPage: React.FC = () => {
       const target = redirectParam && isSafeRelativeUrl(redirectParam) ? redirectParam : '/dashboard'
       navigate(target, { replace: true })
     } catch (err) {
-      setError(errorMessage(err, 'Login gagal. Periksa email dan password Anda.'))
+      setError(errorMessage(err, 'Login gagal. Periksa username/email dan password Anda.'))
       setPassword('')
     } finally {
       setIsLoading(false)
@@ -65,7 +65,7 @@ export const LoginPage: React.FC = () => {
         >
           <div>
             <label htmlFor="identifier" className="block text-xs font-bold text-stone-300 mb-1.5">
-              Email admin atau WhatsApp
+              Username, Email admin, atau WhatsApp
             </label>
             <div className="relative">
               <i
@@ -81,7 +81,7 @@ export const LoginPage: React.FC = () => {
                 spellCheck={false}
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
-                placeholder="nama@cafeolga.id"
+                placeholder="username atau nama@cafeolga.id"
                 className="w-full pl-9 pr-4 py-2.5 bg-stone-800 border border-stone-700 rounded-xl text-xs text-white placeholder-stone-500 focus:outline-none focus:border-brand-500"
               />
             </div>

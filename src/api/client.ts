@@ -2,9 +2,11 @@ import axios from 'axios'
 import { safeAssign } from '../utils/navigation'
 import type {
   Branch,
+  BranchCredentials,
   BranchSettings,
   Category,
   CategoryInput,
+  ChangePasswordInput,
   DashboardStats,
   FeedbackAISummaryResponse,
   FeedbackAnalytics,
@@ -13,6 +15,7 @@ import type {
   MenuItem,
   MenuItemInput,
   Order,
+  UpdateBranchCredentialsInput,
   User,
 } from '../types'
 
@@ -87,6 +90,29 @@ export const adminApi = {
 
   getCurrentUser: async (): Promise<User> => {
     const res = await api.get('/auth/me')
+    return res.data.data
+  },
+
+  changePassword: async (data: ChangePasswordInput): Promise<{ message: string }> => {
+    const res = await api.put('/admin/change-password', data)
+    return res.data.data ?? res.data
+  },
+
+  getAllBranchCredentials: async (): Promise<BranchCredentials[]> => {
+    const res = await api.get('/owner/branch-credentials')
+    return res.data.data ?? []
+  },
+
+  getBranchCredentials: async (branchId: string): Promise<BranchCredentials> => {
+    const res = await api.get(`/owner/branches/${branchId}/credentials`)
+    return res.data.data
+  },
+
+  updateBranchCredentials: async (
+    branchId: string,
+    data: UpdateBranchCredentialsInput
+  ): Promise<BranchCredentials> => {
+    const res = await api.put(`/owner/branches/${branchId}/credentials`, data)
     return res.data.data
   },
 

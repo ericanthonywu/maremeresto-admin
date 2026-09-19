@@ -7,8 +7,8 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Inter', 'sans-serif'],
-        serif: ['Playfair Display', 'serif'],
+        sans: ['"Nunito Sans"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        serif: ['"Nunito Sans"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
       },
       colors: {
         brand: {

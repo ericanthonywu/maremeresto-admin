@@ -1,13 +1,41 @@
 import React, { useCallback, useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { adminApi, errorMessage } from '../api/client'
 import { useAuth } from '../context/AuthContext'
 import type { BranchSettings, DayHours } from '../types'
 import { BranchProfileForm } from '../components/BranchProfileForm'
+import { ChangePasswordSection } from '../components/ChangePasswordSection'
+import { BranchCredentialsSection } from '../components/BranchCredentialsSection'
 
 const DEFAULT_HOURS: DayHours = { open: '08:00', close: '22:00' }
 
+type TabKey = 'outlet' | 'branch_accounts' | 'security'
+
 export const SettingsPage: React.FC = () => {
   const { activeBranchId, activeBranch, isOwner } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  const tabParam = searchParams.get('tab') as TabKey | null
+  const [activeTab, setActiveTab] = useState<TabKey>(() => {
+    if (tabParam === 'branch_accounts' && isOwner) return 'branch_accounts'
+    if (tabParam === 'security') return 'security'
+    return 'outlet'
+  })
+
+  useEffect(() => {
+    if (tabParam === 'branch_accounts' && isOwner) {
+      setActiveTab('branch_accounts')
+    } else if (tabParam === 'security') {
+      setActiveTab('security')
+    } else if (tabParam === 'outlet') {
+      setActiveTab('outlet')
+    }
+  }, [tabParam, isOwner])
+
+  const handleTabChange = (tab: TabKey) => {
+    setActiveTab(tab)
+    setSearchParams({ tab }, { replace: true })
+  }
 
   const [settings, setSettings] = useState<BranchSettings | null>(null)
   const [loading, setLoading] = useState(true)
@@ -145,48 +173,20 @@ export const SettingsPage: React.FC = () => {
     }
   }
 
-  if (!activeBranchId) {
-    return (
-      <div className="bg-white rounded-3xl p-12 text-center border border-stone-200 shadow-sm">
-        <i className="fa-solid fa-store text-3xl text-stone-300 mb-2" aria-hidden="true"></i>
-        <h3 className="font-bold text-stone-800 text-sm">Pilih outlet terlebih dahulu</h3>
-      </div>
-    )
-  }
-
-  if (loading) {
-    return (
-      <div className="py-20 flex justify-center">
-        <i className="fa-solid fa-circle-notch fa-spin text-3xl text-brand-600" aria-hidden="true"></i>
-        <span className="sr-only">Memuat pengaturan</span>
-      </div>
-    )
-  }
-
-  if (!settings) {
-    return (
-      <div className="bg-white rounded-3xl p-12 text-center border border-stone-200 shadow-sm space-y-3">
-        <i className="fa-solid fa-triangle-exclamation text-3xl text-amber-500" aria-hidden="true"></i>
-        <h3 className="font-bold text-stone-800 text-sm">Pengaturan tidak ditemukan</h3>
-        {error && <p className="text-xs text-stone-500">{error}</p>}
-        <button
-          onClick={() => void load()}
-          className="px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-2xl text-xs font-bold"
-        >
-          Coba lagi
-        </button>
-      </div>
-    )
-  }
-
   return (
     <div className="space-y-6 max-w-3xl">
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
-          <h1 className="font-serif text-2xl font-bold text-stone-900">Pengaturan Outlet</h1>
-          <p className="text-xs text-stone-500">{activeBranch?.name}</p>
+          <h1 className="font-serif text-2xl font-bold text-stone-900">Pengaturan</h1>
+          <p className="text-xs text-stone-500">
+            {activeTab === 'outlet'
+              ? `Operasional & Profil ${activeBranch?.name || 'Outlet'}`
+              : activeTab === 'branch_accounts'
+              ? 'Kelola Akses & Kredensial Cabang'
+              : 'Keamanan Akun & Password Pribadi'}
+          </p>
         </div>
-        {saved && (
+        {activeTab === 'outlet' && saved && (
           <span
             role="status"
             className="text-xs text-emerald-600 font-bold bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-200"
@@ -195,6 +195,92 @@ export const SettingsPage: React.FC = () => {
           </span>
         )}
       </div>
+
+      {/* Navigation tabs */}
+      <div className="flex items-center gap-2 border-b border-stone-200 pb-1 overflow-x-auto custom-scrollbar">
+        <button
+          type="button"
+          onClick={() => handleTabChange('outlet')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition-all shrink-0 ${
+            activeTab === 'outlet'
+              ? 'bg-brand-600 text-white shadow-sm shadow-brand-900/20'
+              : 'text-stone-600 hover:text-stone-900 hover:bg-stone-200/60'
+          }`}
+        >
+          <i className="fa-solid fa-store" aria-hidden="true"></i>
+          <span>Operasional Outlet</span>
+        </button>
+
+        {isOwner && (
+          <button
+            type="button"
+            onClick={() => handleTabChange('branch_accounts')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition-all shrink-0 ${
+              activeTab === 'branch_accounts'
+                ? 'bg-brand-600 text-white shadow-sm shadow-brand-900/20'
+                : 'text-stone-600 hover:text-stone-900 hover:bg-stone-200/60'
+            }`}
+          >
+            <i className="fa-solid fa-key" aria-hidden="true"></i>
+            <span>Kredensial Cabang</span>
+            <span
+              className={`text-[9px] uppercase tracking-wider font-extrabold px-1.5 py-0.5 rounded-md ${
+                activeTab === 'branch_accounts'
+                  ? 'bg-brand-800 text-brand-100'
+                  : 'bg-amber-100 text-amber-800'
+              }`}
+            >
+              Owner
+            </span>
+          </button>
+        )}
+
+        <button
+          type="button"
+          onClick={() => handleTabChange('security')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition-all shrink-0 ${
+            activeTab === 'security'
+              ? 'bg-brand-600 text-white shadow-sm shadow-brand-900/20'
+              : 'text-stone-600 hover:text-stone-900 hover:bg-stone-200/60'
+          }`}
+        >
+          <i className="fa-solid fa-shield-halved" aria-hidden="true"></i>
+          <span>Keamanan Akun Saya</span>
+        </button>
+      </div>
+
+      {activeTab === 'branch_accounts' && isOwner && (
+        <BranchCredentialsSection initialBranchId={activeBranchId} />
+      )}
+
+      {activeTab === 'security' && <ChangePasswordSection />}
+
+      {activeTab === 'outlet' && (
+        <>
+          {!activeBranchId ? (
+            <div className="bg-white rounded-3xl p-12 text-center border border-stone-200 shadow-sm">
+              <i className="fa-solid fa-store text-3xl text-stone-300 mb-2" aria-hidden="true"></i>
+              <h3 className="font-bold text-stone-800 text-sm">Pilih outlet terlebih dahulu</h3>
+            </div>
+          ) : loading ? (
+            <div className="py-20 flex justify-center">
+              <i className="fa-solid fa-circle-notch fa-spin text-3xl text-brand-600" aria-hidden="true"></i>
+              <span className="sr-only">Memuat pengaturan</span>
+            </div>
+          ) : !settings ? (
+            <div className="bg-white rounded-3xl p-12 text-center border border-stone-200 shadow-sm space-y-3">
+              <i className="fa-solid fa-triangle-exclamation text-3xl text-amber-500" aria-hidden="true"></i>
+              <h3 className="font-bold text-stone-800 text-sm">Pengaturan tidak ditemukan</h3>
+              {error && <p className="text-xs text-stone-500">{error}</p>}
+              <button
+                onClick={() => void load()}
+                className="px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-2xl text-xs font-bold"
+              >
+                Coba lagi
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-6">
 
       {error && (
         <div
@@ -401,6 +487,10 @@ export const SettingsPage: React.FC = () => {
           Anda mengubah pengaturan untuk <strong>{activeBranch?.name}</strong>. Ganti outlet di
           sidebar untuk mengatur cabang lain.
         </p>
+      )}
+            </div>
+          )}
+        </>
       )}
     </div>
   )

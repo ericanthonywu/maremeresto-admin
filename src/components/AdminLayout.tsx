@@ -82,14 +82,13 @@ export const AdminLayout: React.FC = () => {
       <div className="flex-1 overflow-y-auto custom-scrollbar">
         {/* Brand header */}
         <div className="p-5 border-b border-stone-800/80 flex items-center gap-3.5 bg-stone-900/40">
-          <div
-            className="w-10 h-10 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center text-amber-200 text-lg shadow-lg ring-1 ring-brand-400/30 shrink-0"
-            aria-hidden="true"
-          >
-            <i className={`fa-solid ${isOwner ? 'fa-crown' : 'fa-mug-hot'}`}></i>
-          </div>
+          <img
+            src="/logo.png"
+            alt="Mareme Group logo"
+            className="h-10 w-auto object-contain shrink-0"
+          />
           <div className="min-w-0">
-            <span className="font-serif font-bold text-base block text-white leading-tight tracking-tight">Mareme Group</span>
+            <span className="font-bold text-base block text-white leading-tight tracking-wide uppercase">MAREMÈ</span>
             <span className="inline-flex items-center gap-1 text-[10px] text-amber-400 font-bold uppercase tracking-wider mt-0.5">
               <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
               {isOwner ? 'HQ Portal' : 'Outlet Portal'}
@@ -108,17 +107,26 @@ export const AdminLayout: React.FC = () => {
               <span className="text-[10px] text-stone-400 font-mono block truncate">{user?.phone}</span>
             </div>
           </div>
-          <div
-            className="flex items-center gap-1 px-2 py-1 rounded-lg bg-stone-900 border border-stone-800 shrink-0"
-            title={isConnected ? 'Terhubung ke server pesanan (WebSocket)' : 'Terputus dari server pesanan'}
-          >
-            <span
-              className={`w-2 h-2 rounded-full ${isConnected ? 'bg-emerald-400 animate-pulse' : 'bg-red-500'}`}
-              aria-hidden="true"
-            ></span>
-            <span className="text-[9px] text-stone-300 font-mono font-bold uppercase">
-              {isConnected ? 'Live' : 'Off'}
-            </span>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <Link
+              to="/settings?tab=security"
+              title="Keamanan & Ubah Password"
+              className="w-7 h-7 flex items-center justify-center rounded-lg bg-stone-900 border border-stone-800 text-stone-400 hover:text-amber-400 hover:border-stone-700 transition-colors"
+            >
+              <i className="fa-solid fa-key text-[10px]" aria-hidden="true"></i>
+            </Link>
+            <div
+              className="flex items-center gap-1 px-2 py-1 rounded-lg bg-stone-900 border border-stone-800 shrink-0"
+              title={isConnected ? 'Terhubung ke server pesanan (WebSocket)' : 'Terputus dari server pesanan'}
+            >
+              <span
+                className={`w-2 h-2 rounded-full ${isConnected ? 'bg-emerald-400 animate-pulse' : 'bg-red-500'}`}
+                aria-hidden="true"
+              ></span>
+              <span className="text-[9px] text-stone-300 font-mono font-bold uppercase">
+                {isConnected ? 'Live' : 'Off'}
+              </span>
+            </div>
           </div>
         </div>
 
@@ -218,7 +226,7 @@ export const AdminLayout: React.FC = () => {
 
       <div className="lg:ml-64 flex flex-col min-h-screen">
         {/* Top bar */}
-        <header className="sticky top-0 z-20 bg-white/95 backdrop-blur border-b border-stone-200 px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
+        <header className="sticky top-0 z-20 bg-white border-b border-stone-200 px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <button
               onClick={() => setMobileMenuOpen(true)}
