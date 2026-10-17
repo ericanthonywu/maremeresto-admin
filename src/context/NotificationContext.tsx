@@ -25,6 +25,9 @@ interface NotificationContextType {
   unreadCount: number
   /** Pushed by the websocket layer when a new order arrives. */
   notifyNewOrder: (order: Order) => void
+  /** Marks existing order IDs as seen on boot so only genuinely new orders trigger a popup. */
+  seedSeenOrders: (ids: string[]) => void
+  hasSeenOrder: (id: string) => boolean
   dismiss: (id: string) => void
   dismissAll: () => void
   setUnreadCount: (n: number) => void
@@ -166,6 +169,16 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     [soundEnabled, playChime]
   )
 
+  const seedSeenOrders = useCallback((ids: string[]) => {
+    ids.forEach((id) => {
+      if (id) seenOrderIds.current.add(id)
+    })
+  }, [])
+
+  const hasSeenOrder = useCallback((id: string) => {
+    return seenOrderIds.current.has(id)
+  }, [])
+
   // Reflect the backlog in the tab title so a minimised window still shows it.
   useEffect(() => {
     document.title = unreadCount > 0 ? `(${unreadCount}) ${BASE_TITLE}` : BASE_TITLE
@@ -220,6 +233,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       notices,
       unreadCount,
       notifyNewOrder,
+      seedSeenOrders,
+      hasSeenOrder,
       dismiss,
       dismissAll,
       setUnreadCount,
@@ -230,7 +245,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       testAlert,
     }),
     [
-      notices, unreadCount, notifyNewOrder, dismiss, dismissAll,
+      notices, unreadCount, notifyNewOrder, seedSeenOrders, hasSeenOrder, dismiss, dismissAll,
       soundEnabled, toggleSound, desktopPermission, requestDesktopPermission, testAlert,
     ]
   )

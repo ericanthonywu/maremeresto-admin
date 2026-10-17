@@ -5,7 +5,7 @@ import { useAdminWebSocket } from '../context/AdminWebSocketContext'
 import { useAuth } from '../context/AuthContext'
 import { useNotifications } from '../context/NotificationContext'
 import { RefundOrderModal } from '../components/RefundOrderModal'
-import { OrderRow, nextStatusFor } from '../components/OrderRow'
+import { OrderRow, effectiveOrderTime, nextStatusFor } from '../components/OrderRow'
 import type { Order } from '../types'
 
 const STATUS_FILTERS: Array<{ id: string; label: string }> = [
@@ -17,6 +17,44 @@ const STATUS_FILTERS: Array<{ id: string; label: string }> = [
   { id: 'refunded', label: 'Direfund' },
 ]
 
+type TimeFilter = 'today' | 'tomorrow' | 'yesterday' | '7days' | '30days' | 'custom' | 'all'
+
+const TIME_FILTERS: Array<{ id: TimeFilter; label: string }> = [
+  { id: 'today', label: 'Hari Ini' },
+  { id: 'tomorrow', label: 'Besok' },
+  { id: 'yesterday', label: 'Kemarin' },
+  { id: '7days', label: '7 Hari Terakhir' },
+  { id: '30days', label: '30 Hari Terakhir' },
+  { id: 'custom', label: 'Pilih Tanggal' },
+  { id: 'all', label: 'Semua Waktu' },
+]
+
+function formatJakartaDate(date: Date): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Jakarta',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date)
+  const year = parts.find((p) => p.type === 'year')?.value ?? '2026'
+  const month = parts.find((p) => p.type === 'month')?.value ?? '01'
+  const day = parts.find((p) => p.type === 'day')?.value ?? '01'
+  return `${year}-${month}-${day}`
+}
+
+function shiftJakartaDate(daysOffset: number): string {
+  return formatJakartaDate(new Date(Date.now() + daysOffset * 86400000))
+}
+
+function sortOrdersByEffectiveTime(list: Order[]): Order[] {
+  return [...list].sort((a, b) => {
+    const ta = new Date(effectiveOrderTime(a)).getTime()
+    const tb = new Date(effectiveOrderTime(b)).getTime()
+    if (tb !== ta) return tb - ta
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  })
+}
+
 export const OrdersPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams()
   const { activeBranchId, isOwner } = useAuth()
@@ -27,6 +65,11 @@ export const OrdersPage: React.FC = () => {
   const [total, setTotal] = useState(0)
   const [statusCounts, setStatusCounts] = useState<Record<string, number>>({})
   const [statusFilter, setStatusFilter] = useState(searchParams.get('status') ?? 'all')
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>(
+    (searchParams.get('time') as TimeFilter) || 'today'
+  )
+  const [customDateFrom, setCustomDateFrom] = useState(() => shiftJakartaDate(0))
+  const [customDateTo, setCustomDateTo] = useState(() => shiftJakartaDate(0))
   const [searchInput, setSearchInput] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [loading, setLoading] = useState(true)
@@ -43,6 +86,35 @@ export const OrdersPage: React.FC = () => {
     const timer = window.setTimeout(() => setSearchQuery(searchInput.trim()), 400)
     return () => window.clearTimeout(timer)
   }, [searchInput])
+
+  const dateRange = useMemo((): { date_from?: string; date_to?: string; include_active?: boolean } => {
+    switch (timeFilter) {
+      case 'today': {
+        const today = shiftJakartaDate(0)
+        return { date_from: today, date_to: today, include_active: true }
+      }
+      case 'tomorrow': {
+        const tomorrow = shiftJakartaDate(1)
+        return { date_from: tomorrow, date_to: tomorrow }
+      }
+      case 'yesterday': {
+        const yesterday = shiftJakartaDate(-1)
+        return { date_from: yesterday, date_to: yesterday }
+      }
+      case '7days':
+        return { date_from: shiftJakartaDate(-6), date_to: shiftJakartaDate(0) }
+      case '30days':
+        return { date_from: shiftJakartaDate(-29), date_to: shiftJakartaDate(0) }
+      case 'custom':
+        return {
+          date_from: customDateFrom || undefined,
+          date_to: customDateTo || customDateFrom || undefined,
+        }
+      case 'all':
+      default:
+        return {}
+    }
+  }, [timeFilter, customDateFrom, customDateTo])
 
   const setBusy = (id: string, busy: boolean) =>
     setBusyIds((prev) => {
@@ -61,9 +133,12 @@ export const OrdersPage: React.FC = () => {
         status: statusFilter !== 'all' ? statusFilter : undefined,
         search: searchQuery || undefined,
         branch_id: isOwner ? (activeBranchId ?? undefined) : undefined,
+        date_from: dateRange.date_from,
+        date_to: dateRange.date_to,
+        include_active: dateRange.include_active,
         limit: 50,
       })
-      setOrders(res.orders)
+      setOrders(sortOrdersByEffectiveTime(res.orders))
       setTotal(res.total)
       setStatusCounts(res.statusCounts)
       setUnreadCount(res.unread)
@@ -72,7 +147,7 @@ export const OrdersPage: React.FC = () => {
     } finally {
       setLoading(false)
     }
-  }, [statusFilter, searchQuery, activeBranchId, isOwner, setUnreadCount])
+  }, [statusFilter, searchQuery, activeBranchId, isOwner, dateRange, setUnreadCount])
 
   useEffect(() => {
     setLoading(true)
@@ -81,13 +156,29 @@ export const OrdersPage: React.FC = () => {
 
   // Live refresh on new orders and status changes from other devices.
   useEffect(() => {
-    const unsubOrders = subscribeToOrders(() => void loadOrders())
+    const unsubOrders = subscribeToOrders((incomingOrder) => {
+      const inBranchScope = !isOwner || !activeBranchId || incomingOrder.branch_id === activeBranchId
+      const inStatusScope =
+        statusFilter === 'all'
+          ? incomingOrder.status !== 'pending'
+          : incomingOrder.status === statusFilter
+      if (inBranchScope && inStatusScope && (timeFilter === 'today' || timeFilter === 'all' || timeFilter === '7days' || timeFilter === '30days')) {
+        setOrders((prev) => {
+          const exists = prev.some((o) => o.id === incomingOrder.id)
+          const next = exists
+            ? prev.map((o) => (o.id === incomingOrder.id ? incomingOrder : o))
+            : [incomingOrder, ...prev]
+          return sortOrdersByEffectiveTime(next)
+        })
+      }
+      void loadOrders()
+    })
     const unsubStatus = subscribeToStatusUpdates(() => void loadOrders())
     return () => {
       unsubOrders()
       unsubStatus()
     }
-  }, [subscribeToOrders, subscribeToStatusUpdates, loadOrders])
+  }, [subscribeToOrders, subscribeToStatusUpdates, loadOrders, isOwner, activeBranchId, statusFilter, timeFilter])
 
   // Scroll a notification's order into view once it is on screen.
   useEffect(() => {
@@ -97,7 +188,7 @@ export const OrdersPage: React.FC = () => {
   }, [highlightId, orders])
 
   const applyUpdated = (updated: Order) => {
-    setOrders((prev) => prev.map((o) => (o.id === updated.id ? updated : o)))
+    setOrders((prev) => sortOrdersByEffectiveTime(prev.map((o) => (o.id === updated.id ? updated : o))))
   }
 
   const handleAdvanceStatus = async (order: Order) => {
@@ -107,6 +198,7 @@ export const OrdersPage: React.FC = () => {
     setBusy(order.id, true)
     try {
       applyUpdated(await adminApi.updateOrderStatus(order.id, next, order.version))
+      void loadOrders()
     } catch (err) {
       setError(errorMessage(err, 'Gagal memperbarui status.'))
       // Re-sync: a conflict means someone else changed it first.
@@ -129,6 +221,7 @@ export const OrdersPage: React.FC = () => {
     setBusy(order.id, true)
     try {
       applyUpdated(await adminApi.updateOrderStatus(order.id, 'rejected', order.version, reason.trim()))
+      void loadOrders()
     } catch (err) {
       setError(errorMessage(err, 'Gagal menolak pesanan.'))
       void loadOrders()
@@ -146,8 +239,23 @@ export const OrdersPage: React.FC = () => {
     setSearchParams(next, { replace: true })
   }
 
-  const pendingCount = statusCounts.pending ?? 0
-  const allStatusCount = useMemo(() => Object.values(statusCounts).reduce((sum, count) => sum + count, 0), [statusCounts])
+  const handleTimeFilterChange = (id: TimeFilter) => {
+    setTimeFilter(id)
+    const next = new URLSearchParams(searchParams)
+    if (id === 'today') next.delete('time')
+    else next.set('time', id)
+    next.delete('highlight')
+    setSearchParams(next, { replace: true })
+  }
+
+  const pendingCount = statusCounts.accepted ?? 0
+  const allStatusCount = useMemo(
+    () =>
+      Object.entries(statusCounts)
+        .filter(([st]) => st !== 'pending')
+        .reduce((sum, [, count]) => sum + count, 0),
+    [statusCounts]
+  )
 
   return (
     <div className="space-y-6">
@@ -155,8 +263,12 @@ export const OrdersPage: React.FC = () => {
         <div>
           <h1 className="font-serif text-2xl font-bold text-stone-900">Pesanan</h1>
           <p className="text-xs text-stone-500">
-            {total} pesanan{statusFilter !== 'all' ? ' (terfilter)' : ''}
-            {pendingCount > 0 && ` · ${pendingCount} menunggu tindakan`}
+            {total} pesanan
+            {TIME_FILTERS.find((t) => t.id === timeFilter)?.label
+              ? ` · ${TIME_FILTERS.find((t) => t.id === timeFilter)?.label}`
+              : ''}
+            {statusFilter !== 'all' ? ' (terfilter)' : ''}
+            {pendingCount > 0 && ` · ${pendingCount} belum diantar`}
           </p>
         </div>
 
@@ -184,59 +296,106 @@ export const OrdersPage: React.FC = () => {
         </div>
       )}
 
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-stone-200/90 shadow-sm">
-        <div className="flex gap-1.5 overflow-x-auto scrollbar-none py-0.5">
-          {STATUS_FILTERS.map((st) => (
-            <button
-              key={st.id}
-              onClick={() => handleFilterChange(st.id)}
-              aria-pressed={statusFilter === st.id}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 ${
-                statusFilter === st.id
-                  ? 'bg-brand-600 text-white shadow-sm'
-                  : 'bg-stone-50 text-stone-600 hover:bg-stone-100 border border-stone-200/60'
-              }`}
-            >
-              <span>{st.label}</span>
-              <span
-                className={`text-[10px] px-1.5 py-0.2 rounded-md font-mono ${
-                  statusFilter === st.id ? 'bg-white/20 text-white' : 'bg-stone-200/70 text-stone-700'
+      <div className="space-y-3 bg-white p-3 rounded-2xl border border-stone-200/90 shadow-sm">
+        {/* Time filter bar (defaults to Hari Ini) */}
+        <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-stone-100">
+          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-0.5">
+            <span className="text-[11px] font-bold text-stone-500 mr-1 flex items-center gap-1 shrink-0">
+              <i className="fa-regular fa-calendar text-stone-400" aria-hidden="true"></i>
+              Waktu:
+            </span>
+            {TIME_FILTERS.map((tf) => (
+              <button
+                key={tf.id}
+                onClick={() => handleTimeFilterChange(tf.id)}
+                aria-pressed={timeFilter === tf.id}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+                  timeFilter === tf.id
+                    ? 'bg-stone-900 text-white shadow-sm'
+                    : 'bg-stone-50 text-stone-600 hover:bg-stone-100 border border-stone-200/60'
                 }`}
               >
-                {st.id === 'all' ? allStatusCount : (statusCounts[st.id] ?? 0)}
-              </span>
-            </button>
-          ))}
+                {tf.label}
+              </button>
+            ))}
+          </div>
+
+          {timeFilter === 'custom' && (
+            <div className="flex items-center gap-2 text-xs">
+              <input
+                type="date"
+                value={customDateFrom}
+                onChange={(e) => setCustomDateFrom(e.target.value)}
+                aria-label="Dari tanggal"
+                className="px-2.5 py-1.5 bg-stone-50 border border-stone-300 rounded-xl text-xs font-mono focus:outline-none focus:border-brand-500"
+              />
+              <span className="text-stone-400 font-bold">s/d</span>
+              <input
+                type="date"
+                value={customDateTo}
+                min={customDateFrom}
+                onChange={(e) => setCustomDateTo(e.target.value)}
+                aria-label="Sampai tanggal"
+                className="px-2.5 py-1.5 bg-stone-50 border border-stone-300 rounded-xl text-xs font-mono focus:outline-none focus:border-brand-500"
+              />
+            </div>
+          )}
         </div>
 
-        <div className="relative flex-1 min-w-[14rem]">
-          <label htmlFor="order-search" className="sr-only">
-            Cari pesanan
-          </label>
-          <i
-            className="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 text-xs"
-            aria-hidden="true"
-          ></i>
-          <input
-            id="order-search"
-            type="search"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Cari nomor pesanan, nama, atau WhatsApp..."
-            className="w-full pl-9 pr-8 py-2 bg-stone-50 border border-stone-300 rounded-xl text-xs focus:outline-none focus:border-brand-500 focus:bg-white transition-all"
-          />
-          {searchInput && (
-            <button
-              onClick={() => {
-                setSearchInput('')
-                setSearchQuery('')
-              }}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 text-xs"
-              aria-label="Hapus pencarian"
-            >
-              <i className="fa-solid fa-xmark" aria-hidden="true"></i>
-            </button>
-          )}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex gap-1.5 overflow-x-auto scrollbar-none py-0.5">
+            {STATUS_FILTERS.map((st) => (
+              <button
+                key={st.id}
+                onClick={() => handleFilterChange(st.id)}
+                aria-pressed={statusFilter === st.id}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                  statusFilter === st.id
+                    ? 'bg-brand-600 text-white shadow-sm'
+                    : 'bg-stone-50 text-stone-600 hover:bg-stone-100 border border-stone-200/60'
+                }`}
+              >
+                <span>{st.label}</span>
+                <span
+                  className={`text-[10px] px-1.5 py-0.2 rounded-md font-mono ${
+                    statusFilter === st.id ? 'bg-white/20 text-white' : 'bg-stone-200/70 text-stone-700'
+                  }`}
+                >
+                  {st.id === 'all' ? allStatusCount : (statusCounts[st.id] ?? 0)}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          <div className="relative flex-1 min-w-[14rem]">
+            <label htmlFor="order-search" className="sr-only">
+              Cari pesanan
+            </label>
+            <i
+              className="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400 text-xs"
+              aria-hidden="true"
+            ></i>
+            <input
+              id="order-search"
+              type="search"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="Cari nomor pesanan, nama, atau WhatsApp..."
+              className="w-full pl-9 pr-8 py-2 bg-stone-50 border border-stone-300 rounded-xl text-xs focus:outline-none focus:border-brand-500 focus:bg-white transition-all"
+            />
+            {searchInput && (
+              <button
+                onClick={() => {
+                  setSearchInput('')
+                  setSearchQuery('')
+                }}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 text-xs"
+                aria-label="Hapus pencarian"
+              >
+                <i className="fa-solid fa-xmark" aria-hidden="true"></i>
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -250,8 +409,8 @@ export const OrdersPage: React.FC = () => {
           <i className="fa-solid fa-inbox text-4xl text-stone-300 mb-3" aria-hidden="true"></i>
           <h3 className="font-bold text-stone-800 text-sm">Tidak ada pesanan ditemukan</h3>
           <p className="text-xs text-stone-500 mt-1">
-            {searchQuery || statusFilter !== 'all'
-              ? 'Coba ubah filter atau kata kunci pencarian.'
+            {searchQuery || statusFilter !== 'all' || timeFilter !== 'all'
+              ? 'Coba ubah filter waktu, status, atau kata kunci pencarian.'
               : 'Pesanan yang masuk akan muncul di sini secara otomatis.'}
           </p>
         </div>

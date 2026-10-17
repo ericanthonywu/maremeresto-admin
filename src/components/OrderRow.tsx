@@ -44,6 +44,28 @@ export function nextActionLabelFor(order: Order, next: OrderStatus): string {
   return `→ ${STATUS_LABELS[next]?.label ?? next}`
 }
 
+export function effectiveOrderTime(order: Order): string {
+  if (order.order_type === 'scheduled' && order.scheduled_at) {
+    return order.scheduled_at
+  }
+  return order.created_at
+}
+
+export function formatOrderDateTime(iso?: string): string {
+  if (!iso) return '-'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return '-'
+  return d.toLocaleString('id-ID', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Asia/Jakarta',
+  })
+}
+
 function formatScheduledShort(iso?: string): string | null {
   if (!iso) return null
   const d = new Date(iso)
@@ -53,6 +75,7 @@ function formatScheduledShort(iso?: string): string | null {
     month: 'short',
     hour: '2-digit',
     minute: '2-digit',
+    timeZone: 'Asia/Jakarta',
   })
 }
 
@@ -67,6 +90,7 @@ function formatScheduledFull(iso?: string): string | null {
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
+    timeZone: 'Asia/Jakarta',
   })
 }
 
@@ -216,11 +240,15 @@ export const OrderRow: React.FC<OrderRowProps> = ({
           </span>
         </td>
 
-        <td className="px-4 py-3 text-stone-400 font-mono whitespace-nowrap">
-          {new Date(order.created_at).toLocaleTimeString('id-ID', {
-            hour: '2-digit',
-            minute: '2-digit',
-          })}
+        <td className="px-4 py-3 font-mono whitespace-nowrap">
+          <span className="block text-stone-700 font-semibold">
+            {formatOrderDateTime(effectiveOrderTime(order))}
+          </span>
+          {order.order_type === 'scheduled' && order.scheduled_at && (
+            <span className="block text-[10px] text-stone-400">
+              Dipesan: {formatOrderDateTime(order.created_at)}
+            </span>
+          )}
         </td>
 
         <td className="px-4 py-3">

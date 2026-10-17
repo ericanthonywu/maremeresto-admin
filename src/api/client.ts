@@ -153,6 +153,9 @@ export const adminApi = {
     status?: string
     branch_id?: string
     search?: string
+    date_from?: string
+    date_to?: string
+    include_active?: boolean
     limit?: number
     offset?: number
   }): Promise<{ orders: Order[]; total: number; unread: number; statusCounts: Record<string, number> }> => {

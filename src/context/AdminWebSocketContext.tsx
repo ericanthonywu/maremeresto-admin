@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { adminApi, TOKEN_KEY } from '../api/client'
 import { useAuth } from './AuthContext'
 import { useNotifications } from './NotificationContext'
 import type { Order } from '../types'
@@ -20,7 +21,7 @@ const PONG_TIMEOUT = 10000
 
 export const AdminWebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, activeBranchId, isOwner } = useAuth()
-  const { notifyNewOrder } = useNotifications()
+  const { notifyNewOrder, seedSeenOrders, hasSeenOrder, setUnreadCount } = useNotifications()
 
   const [isConnected, setIsConnected] = useState(false)
   const [hasDropped, setHasDropped] = useState(false)
@@ -79,7 +80,7 @@ export const AdminWebSocketProvider: React.FC<{ children: React.ReactNode }> = (
         if (wsRef.current !== ws || ws.readyState !== WebSocket.OPEN) return
 
         try {
-          ws.send(JSON.stringify({ event: 'ping' }))
+          ws.send(JSON.stringify({ action: 'ping', event: 'ping' }))
         } catch {
           ws.close()
           return
@@ -114,6 +115,10 @@ export const AdminWebSocketProvider: React.FC<{ children: React.ReactNode }> = (
     // the network instead of only on the developer's machine.
     const url = new URL(`${protocol}//${window.location.host}/api/v1/ws`)
     url.searchParams.set('room', room)
+    const token = localStorage.getItem(TOKEN_KEY)
+    if (token) {
+      url.searchParams.set('token', token)
+    }
 
     let ws: WebSocket
     try {
@@ -171,6 +176,11 @@ export const AdminWebSocketProvider: React.FC<{ children: React.ReactNode }> = (
         }
         case 'order_paid': {
           const order = msg.payload as Order
+          const { isOwner: ownerNow, activeBranchId: branchNow } = scopeRef.current
+          const inScope = !ownerNow || !branchNow || order.branch_id === branchNow
+          if (inScope) {
+            notifyNewOrder(order)
+          }
           orderListenersRef.current.forEach((cb) => {
             try {
               cb(order)
@@ -211,7 +221,7 @@ export const AdminWebSocketProvider: React.FC<{ children: React.ReactNode }> = (
       if (wsRef.current !== ws) return
       ws.close()
     }
-  }, [room, notifyNewOrder, scheduleReconnect, startHeartbeat, stopHeartbeat])
+  }, [room, user, notifyNewOrder, scheduleReconnect, startHeartbeat, stopHeartbeat])
 
   useEffect(() => {
     connectRef.current = connect
@@ -248,6 +258,52 @@ export const AdminWebSocketProvider: React.FC<{ children: React.ReactNode }> = (
       wsRef.current?.close()
     }
   }, [room, connect, stopHeartbeat])
+
+  // Fallback polling ensures new orders are still announced and added in real
+  // time even if a WebSocket frame is dropped during a network handoff.
+  const seededScopeRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!user) return
+    if (!activeBranchId && !isOwner) return
+    const scopeKey = `${user.id}:${isOwner ? (activeBranchId ?? 'all') : (activeBranchId ?? '')}`
+    let cancelled = false
+
+    const pollRecentOrders = async () => {
+      try {
+        const res = await adminApi.getOrders({
+          branch_id: isOwner ? (activeBranchId ?? undefined) : undefined,
+          limit: 25,
+        })
+        if (cancelled) return
+        setUnreadCount(res.unread)
+        if (seededScopeRef.current !== scopeKey) {
+          seedSeenOrders(res.orders.map((o) => o.id))
+          seededScopeRef.current = scopeKey
+          return
+        }
+        const unseen = res.orders.filter((o) => !hasSeenOrder(o.id)).reverse()
+        for (const order of unseen) {
+          notifyNewOrder(order)
+          orderListenersRef.current.forEach((cb) => {
+            try {
+              cb(order)
+            } catch {
+              /* ignore */
+            }
+          })
+        }
+      } catch {
+        /* ignore transient errors */
+      }
+    }
+
+    void pollRecentOrders()
+    const timer = window.setInterval(() => void pollRecentOrders(), 8000)
+    return () => {
+      cancelled = true
+      window.clearInterval(timer)
+    }
+  }, [user, isOwner, activeBranchId, notifyNewOrder, seedSeenOrders, hasSeenOrder, setUnreadCount])
 
   const subscribeToOrders = useCallback((onNewOrder: (order: Order) => void) => {
     orderListenersRef.current.add(onNewOrder)
