@@ -279,7 +279,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const notifyNewOrder = useCallback(
     (order: Order) => {
-      if (!order?.id || seenOrderIds.current.has(order.id)) return
+      if (!order?.id || order.status === 'pending' || seenOrderIds.current.has(order.id)) return
       seenOrderIds.current.add(order.id)
 
       const notice: NewOrderNotice = {

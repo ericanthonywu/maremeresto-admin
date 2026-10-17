@@ -202,6 +202,7 @@ export const AdminWebSocketProvider: React.FC<{ children: React.ReactNode }> = (
           break
         case 'new_order': {
           const order = msg.payload as Order
+          if (order.status === 'pending') break
           // The owner's room carries every outlet's orders, so the badge/sound/
           // toast only fire for the outlet currently in view — otherwise the
           // count and alerts stayed the same no matter which outlet was
@@ -225,6 +226,7 @@ export const AdminWebSocketProvider: React.FC<{ children: React.ReactNode }> = (
         }
         case 'order_paid': {
           const order = msg.payload as Order
+          if (order.status === 'pending') break
           const { isOwner: ownerNow, activeBranchId: branchNow } = scopeRef.current
           const inScope = !ownerNow || !branchNow || order.branch_id === branchNow
           if (inScope) {
@@ -325,12 +327,13 @@ export const AdminWebSocketProvider: React.FC<{ children: React.ReactNode }> = (
         })
         if (cancelled) return
         setUnreadCount(res.unread)
+        const paidOrders = res.orders.filter((o) => o.status !== 'pending')
         if (seededScopeRef.current !== scopeKey) {
-          seedSeenOrders(res.orders.map((o) => o.id))
+          seedSeenOrders(paidOrders.map((o) => o.id))
           seededScopeRef.current = scopeKey
           return
         }
-        const unseen = res.orders.filter((o) => !hasSeenOrder(o.id)).reverse()
+        const unseen = paidOrders.filter((o) => !hasSeenOrder(o.id)).reverse()
         for (const order of unseen) {
           notifyNewOrder(order)
           orderListenersRef.current.forEach((cb) => {

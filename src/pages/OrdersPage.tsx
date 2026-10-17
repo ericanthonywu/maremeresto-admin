@@ -138,7 +138,8 @@ export const OrdersPage: React.FC = () => {
         include_active: dateRange.include_active,
         limit: 50,
       })
-      setOrders(sortOrdersByEffectiveTime(res.orders))
+      const paidOnly = res.orders.filter((o) => o.status !== 'pending')
+      setOrders(sortOrdersByEffectiveTime(paidOnly))
       setTotal(res.total)
       setStatusCounts(res.statusCounts)
       setUnreadCount(res.unread)
@@ -157,18 +158,17 @@ export const OrdersPage: React.FC = () => {
   // Live refresh on new orders and status changes from other devices.
   useEffect(() => {
     const unsubOrders = subscribeToOrders((incomingOrder) => {
+      if (incomingOrder.status === 'pending') return
       const inBranchScope = !isOwner || !activeBranchId || incomingOrder.branch_id === activeBranchId
       const inStatusScope =
-        statusFilter === 'all'
-          ? incomingOrder.status !== 'pending'
-          : incomingOrder.status === statusFilter
+        statusFilter === 'all' || incomingOrder.status === statusFilter
       if (inBranchScope && inStatusScope && (timeFilter === 'today' || timeFilter === 'all' || timeFilter === '7days' || timeFilter === '30days')) {
         setOrders((prev) => {
           const exists = prev.some((o) => o.id === incomingOrder.id)
           const next = exists
             ? prev.map((o) => (o.id === incomingOrder.id ? incomingOrder : o))
             : [incomingOrder, ...prev]
-          return sortOrdersByEffectiveTime(next)
+          return sortOrdersByEffectiveTime(next.filter((o) => o.status !== 'pending'))
         })
       }
       void loadOrders()
