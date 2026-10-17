@@ -16,8 +16,57 @@ const AdminWebSocketContext = createContext<AdminWebSocketContextType | undefine
 
 const BASE_RECONNECT_DELAY = 1000
 const MAX_RECONNECT_DELAY = 20000
-const PING_INTERVAL = 25000
-const PONG_TIMEOUT = 10000
+const PING_INTERVAL = 20000
+const PONG_TIMEOUT = 25000
+
+/**
+ * Creates an un-throttled timer using an inline Web Worker.
+ * Browsers aggressively throttle window.setInterval down to 1 minute or pause it entirely
+ * in background/inactive tabs. Web Workers are exempt from tab throttling, ensuring
+ * background tabs stay connected to WebSockets and receive order audio notifications.
+ */
+function createWorkerTicker(intervalMs: number, onTick: () => void): () => void {
+  if (typeof Worker === 'undefined') {
+    const timer = window.setInterval(onTick, intervalMs)
+    return () => window.clearInterval(timer)
+  }
+
+  const code = `
+    let timer = null;
+    self.onmessage = function(e) {
+      if (e.data === 'start') {
+        clearInterval(timer);
+        timer = setInterval(function() { postMessage('tick'); }, ${intervalMs});
+      } else if (e.data === 'stop') {
+        clearInterval(timer);
+      }
+    };
+  `
+  let blobUrl: string | null = null
+  let worker: Worker | null = null
+  try {
+    const blob = new Blob([code], { type: 'application/javascript' })
+    blobUrl = URL.createObjectURL(blob)
+    worker = new Worker(blobUrl)
+    worker.onmessage = () => {
+      onTick()
+    }
+    worker.postMessage('start')
+  } catch {
+    const timer = window.setInterval(onTick, intervalMs)
+    return () => window.clearInterval(timer)
+  }
+
+  return () => {
+    try {
+      worker?.postMessage('stop')
+      worker?.terminate()
+      if (blobUrl) URL.revokeObjectURL(blobUrl)
+    } catch {
+      /* ignore */
+    }
+  }
+}
 
 export const AdminWebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, activeBranchId, isOwner } = useAuth()
@@ -28,7 +77,7 @@ export const AdminWebSocketProvider: React.FC<{ children: React.ReactNode }> = (
 
   const wsRef = useRef<WebSocket | null>(null)
   const reconnectTimerRef = useRef<number | undefined>(undefined)
-  const pingTimerRef = useRef<number | undefined>(undefined)
+  const stopHeartbeatTickerRef = useRef<(() => void) | undefined>(undefined)
   const pongTimeoutRef = useRef<number | undefined>(undefined)
   const attemptRef = useRef(0)
   const closedByUsRef = useRef(false)
@@ -56,9 +105,9 @@ export const AdminWebSocketProvider: React.FC<{ children: React.ReactNode }> = (
   }, [user, isOwner, activeBranchId])
 
   const stopHeartbeat = useCallback(() => {
-    window.clearInterval(pingTimerRef.current)
+    stopHeartbeatTickerRef.current?.()
+    stopHeartbeatTickerRef.current = undefined
     window.clearTimeout(pongTimeoutRef.current)
-    pingTimerRef.current = undefined
     pongTimeoutRef.current = undefined
   }, [])
 
@@ -76,7 +125,7 @@ export const AdminWebSocketProvider: React.FC<{ children: React.ReactNode }> = (
   const startHeartbeat = useCallback(
     (ws: WebSocket) => {
       stopHeartbeat()
-      pingTimerRef.current = window.setInterval(() => {
+      stopHeartbeatTickerRef.current = createWorkerTicker(PING_INTERVAL, () => {
         if (wsRef.current !== ws || ws.readyState !== WebSocket.OPEN) return
 
         try {
@@ -93,7 +142,7 @@ export const AdminWebSocketProvider: React.FC<{ children: React.ReactNode }> = (
             ws.close()
           }
         }, PONG_TIMEOUT)
-      }, PING_INTERVAL)
+      })
     },
     [stopHeartbeat]
   )
@@ -298,10 +347,21 @@ export const AdminWebSocketProvider: React.FC<{ children: React.ReactNode }> = (
     }
 
     void pollRecentOrders()
-    const timer = window.setInterval(() => void pollRecentOrders(), 8000)
+    const stopPollingTicker = createWorkerTicker(8000, () => {
+      // In background tabs, if the socket was dropped, auto-reconnect immediately
+      if (
+        wsRef.current &&
+        wsRef.current.readyState !== WebSocket.OPEN &&
+        wsRef.current.readyState !== WebSocket.CONNECTING &&
+        !closedByUsRef.current
+      ) {
+        connectRef.current()
+      }
+      void pollRecentOrders()
+    })
     return () => {
       cancelled = true
-      window.clearInterval(timer)
+      stopPollingTicker()
     }
   }, [user, isOwner, activeBranchId, notifyNewOrder, seedSeenOrders, hasSeenOrder, setUnreadCount])
 

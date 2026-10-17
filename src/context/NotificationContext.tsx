@@ -43,40 +43,153 @@ interface NotificationContextType {
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined)
 
 /**
- * Synthesises a two-tone chime with the Web Audio API. An audio file would be
- * another asset to ship and cache; this needs no network and cannot 404.
+ * Plays a spoken voice announcement ("Ada orderan baru") paired with a synthesized chime.
+ * Uses a dedicated audio file (/sounds/ada-orderan-baru.mp3) with SpeechSynthesis and Web Audio API fallbacks.
  */
 function useChime() {
   const ctxRef = useRef<AudioContext | null>(null)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const activeUtterancesRef = useRef<Set<SpeechSynthesisUtterance>>(new Set())
 
-  const play = useCallback(() => {
+  // Pre-load audio file
+  useEffect(() => {
     try {
-      // Play spoken voice announcement "Ada orderan online baru"
+      const audio = new Audio('/sounds/ada-orderan-baru.mp3')
+      audio.preload = 'auto'
+      audio.volume = 1.0
+      audioRef.current = audio
+    } catch {
+      // Audio element not supported
+    }
+
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.getVoices()
+    }
+  }, [])
+
+  // Auto-unlock audio and speech on first user gesture
+  useEffect(() => {
+    const unlock = () => {
+      type AudioCtor = typeof AudioContext
+      const Ctor: AudioCtor | undefined =
+        window.AudioContext ?? (window as unknown as { webkitAudioContext?: AudioCtor }).webkitAudioContext
+      if (Ctor && (!ctxRef.current || ctxRef.current.state === 'closed')) {
+        try {
+          ctxRef.current = new Ctor()
+        } catch {
+          /* ignore */
+        }
+      }
+      if (ctxRef.current && ctxRef.current.state === 'suspended') {
+        ctxRef.current.resume().catch(() => {})
+      }
+      if (audioRef.current) {
+        // In modern browsers (Chrome/Safari), playing and immediately pausing
+        // during a user gesture registers media authorization so the tab is allowed
+        // to play audio even when running in the background!
+        const p = audioRef.current.play()
+        if (p) {
+          p.then(() => {
+            audioRef.current?.pause()
+            if (audioRef.current) audioRef.current.currentTime = 0
+          }).catch(() => {})
+        }
+      }
       if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-        window.speechSynthesis.cancel()
-        const utterance = new SpeechSynthesisUtterance('Ada orderan baru')
-        utterance.lang = 'id-ID'
-        utterance.volume = 1.0 // Maximize volume
-        utterance.rate = 1.0
-        utterance.pitch = 1.0
-        window.speechSynthesis.speak(utterance)
+        if (window.speechSynthesis.paused) {
+          window.speechSynthesis.resume()
+        }
+        window.speechSynthesis.getVoices()
+      }
+    }
+
+    window.addEventListener('click', unlock, { passive: true })
+    window.addEventListener('touchstart', unlock, { passive: true })
+    window.addEventListener('keydown', unlock, { passive: true })
+    window.addEventListener('pointerdown', unlock, { passive: true })
+    return () => {
+      window.removeEventListener('click', unlock)
+      window.removeEventListener('touchstart', unlock)
+      window.removeEventListener('keydown', unlock)
+      window.removeEventListener('pointerdown', unlock)
+    }
+  }, [])
+
+  const playVoiceFallback = useCallback(() => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return
+
+    try {
+      if (window.speechSynthesis.paused) {
+        window.speechSynthesis.resume()
       }
 
+      const utterance = new SpeechSynthesisUtterance('Ada orderan baru')
+      activeUtterancesRef.current.add(utterance)
+
+      const cleanup = () => {
+        activeUtterancesRef.current.delete(utterance)
+      }
+      utterance.onend = cleanup
+      utterance.onerror = cleanup
+
+      const voices = window.speechSynthesis.getVoices()
+      const idVoice = voices.find((v) => v.lang.replace('_', '-').toLowerCase().startsWith('id'))
+      if (idVoice) {
+        utterance.voice = idVoice
+        utterance.lang = idVoice.lang
+      } else {
+        utterance.lang = 'id-ID'
+      }
+
+      utterance.volume = 1.0
+      utterance.rate = 1.0
+      utterance.pitch = 1.0
+
+      window.speechSynthesis.speak(utterance)
+    } catch {
+      // SpeechSynthesis is a fallback
+    }
+  }, [])
+
+  const play = useCallback(() => {
+    // 1. Play natural recorded voice ("Ada orderan baru")
+    let voicePlayed = false
+    if (audioRef.current) {
+      try {
+        audioRef.current.currentTime = 0
+        const promise = audioRef.current.play()
+        if (promise) {
+          promise
+            .then(() => {
+              voicePlayed = true
+            })
+            .catch(() => {
+              if (!voicePlayed) playVoiceFallback()
+            })
+        } else {
+          voicePlayed = true
+        }
+      } catch {
+        playVoiceFallback()
+      }
+    } else {
+      playVoiceFallback()
+    }
+
+    // 2. Play two-tone Web Audio chime as auditory alert
+    try {
       type AudioCtor = typeof AudioContext
       const Ctor: AudioCtor | undefined =
         window.AudioContext ?? (window as unknown as { webkitAudioContext?: AudioCtor }).webkitAudioContext
       if (!Ctor) return
 
-      // Reuse one context: browsers cap how many a page may create.
       if (!ctxRef.current || ctxRef.current.state === 'closed') {
         ctxRef.current = new Ctor()
       }
       const ctx = ctxRef.current
-      // Autoplay policy suspends the context until a user gesture occurs.
       if (ctx.state === 'suspended') void ctx.resume()
 
       const now = ctx.currentTime
-      // Two ascending notes at maximum volume
       for (const [index, frequency] of [880, 1320].entries()) {
         const osc = ctx.createOscillator()
         const gain = ctx.createGain()
@@ -86,7 +199,7 @@ function useChime() {
 
         const start = now + index * 0.18
         gain.gain.setValueAtTime(0, start)
-        gain.gain.linearRampToValueAtTime(1.0, start + 0.02)
+        gain.gain.linearRampToValueAtTime(0.8, start + 0.02)
         gain.gain.exponentialRampToValueAtTime(0.001, start + 0.32)
 
         osc.connect(gain).connect(ctx.destination)
@@ -96,7 +209,7 @@ function useChime() {
     } catch {
       // Audio is a convenience; never let it break order handling.
     }
-  }, [])
+  }, [playVoiceFallback])
 
   return play
 }
@@ -116,6 +229,47 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   // Guards against the same order being announced twice, which happens when
   // the socket reconnects and the branch room replays.
   const seenOrderIds = useRef<Set<string>>(new Set())
+
+  // Tab title alert flashing when order arrives while browser tab is hidden/unfocused
+  const flashTimerRef = useRef<number | undefined>(undefined)
+  const isFlashingRef = useRef(false)
+
+  const stopFlashing = useCallback(() => {
+    window.clearInterval(flashTimerRef.current)
+    flashTimerRef.current = undefined
+    isFlashingRef.current = false
+    document.title = unreadCount > 0 ? `(${unreadCount}) ${BASE_TITLE}` : BASE_TITLE
+  }, [unreadCount])
+
+  const flashTitleForOrder = useCallback((orderNumber: string) => {
+    if (typeof document === 'undefined' || !document.hidden) return
+    window.clearInterval(flashTimerRef.current)
+    isFlashingRef.current = true
+    let toggle = false
+    flashTimerRef.current = window.setInterval(() => {
+      if (!document.hidden) {
+        stopFlashing()
+        return
+      }
+      toggle = !toggle
+      document.title = toggle
+        ? `🔔 ADA PESANAN BARU! (${orderNumber})`
+        : `(${unreadCount + 1}) ${BASE_TITLE}`
+    }, 1000)
+  }, [unreadCount, stopFlashing])
+
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (!document.hidden && isFlashingRef.current) {
+        stopFlashing()
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+      window.clearInterval(flashTimerRef.current)
+    }
+  }, [stopFlashing])
 
   const notifyNewOrder = useCallback(
     (order: Order) => {
@@ -139,12 +293,13 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       setUnreadCount((n) => n + 1)
 
       if (soundEnabled) playChime()
+      flashTitleForOrder(order.order_number)
 
       // A desktop notification reaches staff even when the tab is in the
       // background — the previous 5-second in-page toast on one page did not.
       if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
         try {
-          const notification = new Notification('Pesanan baru masuk', {
+          const notification = new Notification('Ada orderan baru masuk!', {
             body: `${order.order_number} · ${order.customer_name} · ${new Intl.NumberFormat('id-ID', {
               style: 'currency',
               currency: 'IDR',
@@ -155,6 +310,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
             tag: `order-${order.id}`,
             icon: '/favicon.svg',
             requireInteraction: true,
+            silent: false,
           })
           notification.onclick = () => {
             window.focus()
@@ -166,7 +322,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         }
       }
     },
-    [soundEnabled, playChime]
+    [soundEnabled, playChime, flashTitleForOrder]
   )
 
   const seedSeenOrders = useCallback((ids: string[]) => {
