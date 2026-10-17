@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { adminApi, errorMessage } from '../api/client'
 import type { Category, MenuItem } from '../types'
 
@@ -18,28 +18,67 @@ const COMMON_EMOJIS = [
 
 interface CategoryRowProps {
   cat: Category
+  index: number
+  total: number
   itemCount: number
   isBusy: boolean
   isCurrentlyEditing: boolean
+  isDragging: boolean
+  isDragOver: boolean
+  canReorder: boolean
+  onDragStart: (e: React.DragEvent<HTMLDivElement>, catId: string) => void
+  onDragOver: (e: React.DragEvent<HTMLDivElement>, catId: string) => void
+  onDragLeave: () => void
+  onDrop: (e: React.DragEvent<HTMLDivElement>, targetCatId: string) => void
+  onDragEnd: () => void
+  onMoveByStep: (catId: string, delta: -1 | 1) => void
   onEdit: (cat: Category) => void
   onDelete: (cat: Category) => void
 }
 
 const CategoryRow: React.FC<CategoryRowProps> = ({
   cat,
+  index,
+  total,
   itemCount,
   isBusy,
   isCurrentlyEditing,
+  isDragging,
+  isDragOver,
+  canReorder,
+  onDragStart,
+  onDragOver,
+  onDragLeave,
+  onDrop,
+  onDragEnd,
+  onMoveByStep,
   onEdit,
   onDelete,
 }) => {
   return (
     <div
-      className={`p-3 flex items-center justify-between gap-3 transition-colors ${
-        isCurrentlyEditing ? 'bg-brand-50/50' : 'hover:bg-stone-50'
-      }`}
+      draggable={canReorder}
+      onDragStart={(e) => canReorder && onDragStart(e, cat.id)}
+      onDragOver={(e) => canReorder && onDragOver(e, cat.id)}
+      onDragLeave={onDragLeave}
+      onDrop={(e) => canReorder && onDrop(e, cat.id)}
+      onDragEnd={onDragEnd}
+      className={`p-3 flex items-center justify-between gap-3 transition-all select-none ${
+        isCurrentlyEditing
+          ? 'bg-brand-50/50'
+          : isDragOver
+          ? 'bg-brand-50/70 ring-2 ring-inset ring-brand-500'
+          : 'hover:bg-stone-50'
+      } ${isDragging ? 'opacity-40' : ''} ${canReorder ? 'cursor-grab active:cursor-grabbing' : ''}`}
     >
-      <div className="flex items-center gap-3 min-w-0">
+      <div className="flex items-center gap-2.5 min-w-0">
+        <span
+          className="text-stone-300 hover:text-stone-500 px-1 py-1 shrink-0 transition-colors"
+          title="Geser (drag & drop) untuk mengubah urutan kategori"
+          aria-hidden="true"
+        >
+          <i className="fa-solid fa-grip-vertical text-xs"></i>
+        </span>
         <span className="w-9 h-9 text-lg rounded-xl bg-stone-100 flex items-center justify-center shrink-0 shadow-inner">
           {cat.emoji || '🍽️'}
         </span>
@@ -48,9 +87,6 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
             <span className="font-bold text-xs text-stone-900 truncate">
               {cat.name}
             </span>
-            <span className="text-[10px] text-stone-400 font-mono bg-stone-100 px-1.5 py-0.5 rounded">
-              #{cat.sort_order}
-            </span>
           </div>
           <span className="text-[10px] text-stone-500 block mt-0.5">
             {itemCount > 0 ? `${itemCount} item menu terhubung` : 'Belum ada menu terhubung'}
@@ -58,7 +94,30 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
         </div>
       </div>
 
-      <div className="flex items-center gap-1.5 shrink-0">
+      <div className="flex items-center gap-1 shrink-0">
+        <div className="flex items-center mr-1">
+          <button
+            type="button"
+            disabled={!canReorder || index === 0}
+            onClick={() => onMoveByStep(cat.id, -1)}
+            title="Geser naik"
+            aria-label={`Geser naik ${cat.name}`}
+            className="p-1.5 text-stone-400 hover:text-stone-700 rounded-lg hover:bg-stone-100 disabled:opacity-25 disabled:cursor-not-allowed transition-colors"
+          >
+            <i className="fa-solid fa-arrow-up text-[10px]" aria-hidden="true"></i>
+          </button>
+          <button
+            type="button"
+            disabled={!canReorder || index === total - 1}
+            onClick={() => onMoveByStep(cat.id, 1)}
+            title="Geser turun"
+            aria-label={`Geser turun ${cat.name}`}
+            className="p-1.5 text-stone-400 hover:text-stone-700 rounded-lg hover:bg-stone-100 disabled:opacity-25 disabled:cursor-not-allowed transition-colors"
+          >
+            <i className="fa-solid fa-arrow-down text-[10px]" aria-hidden="true"></i>
+          </button>
+        </div>
+
         <button
           type="button"
           onClick={() => onEdit(cat)}
@@ -96,24 +155,30 @@ export const CategoryManagementModal: React.FC<CategoryManagementModalProps> = (
   onClose,
   onCategoriesChanged,
 }) => {
+  const [orderedCategories, setOrderedCategories] = useState<Category[]>(categories)
   const [editingCat, setEditingCat] = useState<Category | null>(null)
   const [isAdding, setIsAdding] = useState(false)
 
   const [name, setName] = useState('')
   const [emoji, setEmoji] = useState('🍽️')
-  const [sortOrder, setSortOrder] = useState(0)
 
   const [saving, setSaving] = useState(false)
+  const [reordering, setReordering] = useState(false)
+  const [draggedCatId, setDraggedCatId] = useState<string | null>(null)
+  const [dragOverCatId, setDragOverCatId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+
+  useEffect(() => {
+    setOrderedCategories([...categories].sort((a, b) => a.sort_order - b.sort_order))
+  }, [categories])
 
   if (!isOpen) return null
 
   const resetForm = () => {
     setName('')
     setEmoji('🍽️')
-    setSortOrder(categories.length > 0 ? Math.max(...categories.map((c) => c.sort_order)) + 1 : 1)
     setEditingCat(null)
     setIsAdding(false)
     setError(null)
@@ -129,8 +194,95 @@ export const CategoryManagementModal: React.FC<CategoryManagementModalProps> = (
     setIsAdding(false)
     setName(cat.name)
     setEmoji(cat.emoji)
-    setSortOrder(cat.sort_order)
     setError(null)
+  }
+
+  const persistCategoryOrder = async (nextList: Category[], previousList: Category[]) => {
+    const withUpdatedSort = nextList.map((cat, idx) => ({
+      ...cat,
+      sort_order: idx + 1,
+    }))
+    setOrderedCategories(withUpdatedSort)
+
+    const prevSortById = new Map(previousList.map((c) => [c.id, c.sort_order]))
+    const changed = withUpdatedSort.filter((c) => prevSortById.get(c.id) !== c.sort_order)
+    if (changed.length === 0) return
+
+    setReordering(true)
+    setError(null)
+    try {
+      await Promise.all(
+        changed.map((c) =>
+          adminApi.updateCategory(c.id, {
+            name: c.name,
+            emoji: c.emoji || '🍽️',
+            sort_order: c.sort_order,
+          })
+        )
+      )
+      setNotice('Urutan kategori berhasil disimpan.')
+      onCategoriesChanged()
+      setTimeout(() => setNotice(null), 2500)
+    } catch (err) {
+      setOrderedCategories(previousList)
+      setError(errorMessage(err, 'Gagal menyimpan urutan kategori.'))
+    } finally {
+      setReordering(false)
+    }
+  }
+
+  const handleDragStart = (e: React.DragEvent<HTMLDivElement>, catId: string) => {
+    setDraggedCatId(catId)
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', catId)
+  }
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>, catId: string) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    if (catId !== draggedCatId && dragOverCatId !== catId) {
+      setDragOverCatId(catId)
+    }
+  }
+
+  const handleDragLeave = () => {
+    setDragOverCatId(null)
+  }
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>, targetCatId: string) => {
+    e.preventDefault()
+    const sourceId = draggedCatId || e.dataTransfer.getData('text/plain')
+    setDraggedCatId(null)
+    setDragOverCatId(null)
+
+    if (!sourceId || sourceId === targetCatId) return
+
+    const fromIndex = orderedCategories.findIndex((c) => c.id === sourceId)
+    const toIndex = orderedCategories.findIndex((c) => c.id === targetCatId)
+    if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) return
+
+    const next = [...orderedCategories]
+    const [moved] = next.splice(fromIndex, 1)
+    next.splice(toIndex, 0, moved)
+
+    void persistCategoryOrder(next, orderedCategories)
+  }
+
+  const handleDragEnd = () => {
+    setDraggedCatId(null)
+    setDragOverCatId(null)
+  }
+
+  const handleMoveByStep = (catId: string, delta: -1 | 1) => {
+    const fromIndex = orderedCategories.findIndex((c) => c.id === catId)
+    const toIndex = fromIndex + delta
+    if (fromIndex < 0 || toIndex < 0 || toIndex >= orderedCategories.length) return
+
+    const next = [...orderedCategories]
+    const [moved] = next.splice(fromIndex, 1)
+    next.splice(toIndex, 0, moved)
+
+    void persistCategoryOrder(next, orderedCategories)
   }
 
   const handleSave = async (e: React.FormEvent) => {
@@ -149,14 +301,18 @@ export const CategoryManagementModal: React.FC<CategoryManagementModalProps> = (
         await adminApi.updateCategory(editingCat.id, {
           name: trimmedName,
           emoji: emoji || '🍽️',
-          sort_order: Number(sortOrder) || 0,
+          sort_order: editingCat.sort_order,
         })
         setNotice(`Kategori "${trimmedName}" berhasil diperbarui.`)
       } else {
+        const nextSort =
+          orderedCategories.length > 0
+            ? Math.max(...orderedCategories.map((c) => c.sort_order)) + 1
+            : 1
         await adminApi.createCategory({
           name: trimmedName,
           emoji: emoji || '🍽️',
-          sort_order: Number(sortOrder) || 0,
+          sort_order: nextSort,
         })
         setNotice(`Kategori "${trimmedName}" berhasil ditambahkan.`)
       }
@@ -197,6 +353,8 @@ export const CategoryManagementModal: React.FC<CategoryManagementModalProps> = (
     }
   }
 
+  const canReorder = !saving && !reordering && !deletingId
+
   return (
     <div
       role="dialog"
@@ -213,7 +371,7 @@ export const CategoryManagementModal: React.FC<CategoryManagementModalProps> = (
               <span>Kelola Kategori Makanan</span>
             </h2>
             <p className="text-xs text-stone-500 mt-0.5">
-              Tambah, ubah, atau susun urutan kategori menu restoran.
+              Tambah, ubah, atau geser (drag & drop) untuk mengatur urutan kategori.
             </p>
           </div>
           <button
@@ -285,7 +443,7 @@ export const CategoryManagementModal: React.FC<CategoryManagementModalProps> = (
                 </div>
 
                 {/* Name field */}
-                <div className="sm:col-span-6">
+                <div className="sm:col-span-9">
                   <label htmlFor="cat-name" className="block text-[11px] font-bold text-stone-600 mb-1">
                     Nama Kategori <span className="text-red-500">*</span>
                   </label>
@@ -296,21 +454,6 @@ export const CategoryManagementModal: React.FC<CategoryManagementModalProps> = (
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="contoh: Dimsum & Kudapan"
-                    className="w-full px-3 py-2 text-xs bg-white border border-stone-300 rounded-xl focus:outline-none focus:border-brand-500"
-                  />
-                </div>
-
-                {/* Sort order field */}
-                <div className="sm:col-span-3">
-                  <label htmlFor="cat-sort" className="block text-[11px] font-bold text-stone-600 mb-1">
-                    Urutan
-                  </label>
-                  <input
-                    id="cat-sort"
-                    type="number"
-                    min={0}
-                    value={sortOrder}
-                    onChange={(e) => setSortOrder(parseInt(e.target.value, 10) || 0)}
                     className="w-full px-3 py-2 text-xs bg-white border border-stone-300 rounded-xl focus:outline-none focus:border-brand-500"
                   />
                 </div>
@@ -359,7 +502,7 @@ export const CategoryManagementModal: React.FC<CategoryManagementModalProps> = (
           ) : (
             <div className="flex justify-between items-center">
               <span className="text-xs text-stone-500">
-                Total {categories.length} kategori terdaftar
+                Total {orderedCategories.length} kategori terdaftar
               </span>
               <button
                 type="button"
@@ -374,17 +517,32 @@ export const CategoryManagementModal: React.FC<CategoryManagementModalProps> = (
 
           {/* Categories List Table */}
           <div className="space-y-2">
-            <h3 className="text-xs font-bold text-stone-700 uppercase tracking-wider">
-              Daftar Kategori
-            </h3>
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-xs font-bold text-stone-700 uppercase tracking-wider">
+                Daftar Kategori
+              </h3>
+              <span className="text-[11px] text-stone-400 flex items-center gap-1.5">
+                {reordering ? (
+                  <>
+                    <i className="fa-solid fa-circle-notch fa-spin text-brand-600" aria-hidden="true"></i>
+                    <span>Menyimpan urutan...</span>
+                  </>
+                ) : (
+                  <>
+                    <i className="fa-solid fa-grip-vertical text-stone-300" aria-hidden="true"></i>
+                    <span>Geser baris untuk ubah urutan</span>
+                  </>
+                )}
+              </span>
+            </div>
 
-            {categories.length === 0 ? (
+            {orderedCategories.length === 0 ? (
               <p className="text-xs text-stone-400 italic py-4 text-center">
                 Belum ada kategori. Silakan tambahkan kategori baru.
               </p>
             ) : (
               <div className="divide-y divide-stone-100 border border-stone-200 rounded-2xl overflow-hidden bg-white shadow-sm">
-                {categories.map((cat) => {
+                {orderedCategories.map((cat, idx) => {
                   const itemCount = menuItems.filter((m) => m.category_id === cat.id).length
                   const isBusy = deletingId === cat.id
                   const isCurrentlyEditing = editingCat?.id === cat.id
@@ -393,9 +551,20 @@ export const CategoryManagementModal: React.FC<CategoryManagementModalProps> = (
                     <CategoryRow
                       key={cat.id}
                       cat={cat}
+                      index={idx}
+                      total={orderedCategories.length}
                       itemCount={itemCount}
                       isBusy={isBusy}
                       isCurrentlyEditing={isCurrentlyEditing}
+                      isDragging={draggedCatId === cat.id}
+                      isDragOver={dragOverCatId === cat.id && draggedCatId !== cat.id}
+                      canReorder={canReorder}
+                      onDragStart={handleDragStart}
+                      onDragOver={handleDragOver}
+                      onDragLeave={handleDragLeave}
+                      onDrop={handleDrop}
+                      onDragEnd={handleDragEnd}
+                      onMoveByStep={handleMoveByStep}
                       onEdit={startEdit}
                       onDelete={handleDelete}
                     />

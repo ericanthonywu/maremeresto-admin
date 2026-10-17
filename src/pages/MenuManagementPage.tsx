@@ -23,9 +23,12 @@ export const MenuManagementPage: React.FC = () => {
 
   const [formOpen, setFormOpen] = useState(false)
   const [categoryModalOpen, setCategoryModalOpen] = useState(false)
-	const [bulkModalOpen, setBulkModalOpen] = useState(false)
+  const [bulkModalOpen, setBulkModalOpen] = useState(false)
   const [editing, setEditing] = useState<MenuItem | null>(null)
   const [busyIds, setBusyIds] = useState<Set<string>>(new Set())
+  const [draggedItemId, setDraggedItemId] = useState<string | null>(null)
+  const [dragOverItemId, setDragOverItemId] = useState<string | null>(null)
+  const [reorderingMenu, setReorderingMenu] = useState(false)
 
   const setBusy = (id: string, busy: boolean) =>
     setBusyIds((prev) => {
@@ -130,9 +133,23 @@ export const MenuManagementPage: React.FC = () => {
     setFormOpen(true)
   }
 
+  const categoryOrderMap = useMemo(() => {
+    const map = new Map<string, number>()
+    categories.forEach((c, idx) => {
+      map.set(c.id, c.sort_order ?? idx)
+    })
+    return map
+  }, [categories])
+
   const sortedItems = useMemo(() => {
-    return [...items].sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name))
-  }, [items])
+    return [...items].sort(
+      (a, b) =>
+        (categoryOrderMap.get(a.category_id) ?? 9999) -
+          (categoryOrderMap.get(b.category_id) ?? 9999) ||
+        a.sort_order - b.sort_order ||
+        a.name.localeCompare(b.name)
+    )
+  }, [items, categoryOrderMap])
 
   const filteredItems = useMemo(() => {
     const query = searchQuery.trim().toLowerCase()
@@ -161,6 +178,94 @@ export const MenuManagementPage: React.FC = () => {
     return map
   }, [filteredItems])
 
+  const persistCategoryMenuOrder = async (categoryId: string, nextCategoryItems: MenuItem[]) => {
+    const previousItems = items
+    const prevSortMap = new Map(previousItems.map((i) => [i.id, i.sort_order]))
+
+    const updatedCategoryItems = nextCategoryItems.map((item, idx) => ({
+      ...item,
+      sort_order: idx + 1,
+    }))
+    const updatedById = new Map(updatedCategoryItems.map((i) => [i.id, i]))
+
+    // Optimistic update
+    setItems((prev) =>
+      prev.map((item) => (item.category_id === categoryId ? updatedById.get(item.id) ?? item : item))
+    )
+
+    const changed = updatedCategoryItems.filter((i) => prevSortMap.get(i.id) !== i.sort_order)
+    if (changed.length === 0) return
+
+    setReorderingMenu(true)
+    setError(null)
+    try {
+      await Promise.all(
+        changed.map((it) => adminApi.updateMenuItem(it.id, { sort_order: it.sort_order }))
+      )
+      showNotice('Urutan tampil menu berhasil disimpan.')
+    } catch (err) {
+      setItems(previousItems)
+      setError(errorMessage(err, 'Gagal menyimpan urutan menu.'))
+    } finally {
+      setReorderingMenu(false)
+    }
+  }
+
+  const handleMenuDragStart = (e: React.DragEvent<HTMLElement>, itemId: string) => {
+    setDraggedItemId(itemId)
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', itemId)
+  }
+
+  const handleMenuDragOver = (e: React.DragEvent<HTMLElement>, targetItem: MenuItem) => {
+    if (!draggedItemId) return
+    const draggedItem = items.find((i) => i.id === draggedItemId)
+    if (!draggedItem || draggedItem.category_id !== targetItem.category_id) return
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    if (dragOverItemId !== targetItem.id && draggedItemId !== targetItem.id) {
+      setDragOverItemId(targetItem.id)
+    }
+  }
+
+  const handleMenuDragLeave = (targetItemId: string) => {
+    if (dragOverItemId === targetItemId) {
+      setDragOverItemId(null)
+    }
+  }
+
+  const handleMenuDrop = (e: React.DragEvent<HTMLElement>, targetItem: MenuItem) => {
+    e.preventDefault()
+    const sourceId = draggedItemId || e.dataTransfer.getData('text/plain')
+    setDraggedItemId(null)
+    setDragOverItemId(null)
+
+    if (!sourceId || sourceId === targetItem.id) return
+    const sourceItem = items.find((i) => i.id === sourceId)
+    if (!sourceItem || sourceItem.category_id !== targetItem.category_id) return
+
+    const catItemsAll = sortedItems.filter((i) => i.category_id === targetItem.category_id)
+    const fromIndex = catItemsAll.findIndex((i) => i.id === sourceId)
+    const toIndex = catItemsAll.findIndex((i) => i.id === targetItem.id)
+    if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) return
+
+    const next = [...catItemsAll]
+    const [moved] = next.splice(fromIndex, 1)
+    next.splice(toIndex, 0, moved)
+
+    void persistCategoryMenuOrder(targetItem.category_id, next)
+  }
+
+  const handleMenuDragEnd = () => {
+    setDraggedItemId(null)
+    setDragOverItemId(null)
+  }
+
+  const nextSortOrderForNewItem = useMemo(() => {
+    if (items.length === 0) return 1
+    return Math.max(...items.map((i) => i.sort_order), 0) + 1
+  }, [items])
+
   const unavailableCount = items.filter((i) => !i.is_available).length
 
   if (!activeBranchId) {
@@ -180,20 +285,35 @@ export const MenuManagementPage: React.FC = () => {
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <h1 className="font-serif text-2xl font-bold text-stone-900">Kelola Menu</h1>
-          <p className="text-xs text-stone-500">
-            {activeBranch?.name} · {items.length} item
-            {unavailableCount > 0 && ` · ${unavailableCount} habis`}
+          <p className="text-xs text-stone-500 flex items-center gap-2 flex-wrap">
+            <span>
+              {activeBranch?.name} · {items.length} item
+              {unavailableCount > 0 && ` · ${unavailableCount} habis`}
+            </span>
+            <span className="inline-flex items-center gap-1 text-[11px] text-stone-400 bg-stone-100 px-2 py-0.5 rounded-full">
+              {reorderingMenu ? (
+                <>
+                  <i className="fa-solid fa-circle-notch fa-spin text-brand-600" aria-hidden="true"></i>
+                  <span>Menyimpan urutan...</span>
+                </>
+              ) : (
+                <>
+                  <i className="fa-solid fa-grip-vertical text-stone-400" aria-hidden="true"></i>
+                  <span>Drag & drop kartu untuk ubah urutan tampil</span>
+                </>
+              )}
+            </span>
           </p>
         </div>
 
         <div className="flex items-center gap-2">
-		  <button
-			onClick={() => setBulkModalOpen(true)}
-			className="px-4 py-2.5 bg-white hover:bg-stone-50 text-stone-700 border border-stone-300 rounded-2xl text-xs font-bold shadow-sm flex items-center gap-2 transition-all active:scale-95"
-		  >
-			<i className="fa-solid fa-table-list text-brand-600" aria-hidden="true"></i>
-			<span>Tambah bulk</span>
-		  </button>
+          <button
+            onClick={() => setBulkModalOpen(true)}
+            className="px-4 py-2.5 bg-white hover:bg-stone-50 text-stone-700 border border-stone-300 rounded-2xl text-xs font-bold shadow-sm flex items-center gap-2 transition-all active:scale-95"
+          >
+            <i className="fa-solid fa-table-list text-brand-600" aria-hidden="true"></i>
+            <span>Tambah bulk</span>
+          </button>
           <button
             onClick={() => setCategoryModalOpen(true)}
             className="px-4 py-2.5 bg-white hover:bg-stone-50 text-stone-700 border border-stone-300 rounded-2xl text-xs font-bold shadow-sm flex items-center gap-2 transition-all active:scale-95"
@@ -333,13 +453,37 @@ export const MenuManagementPage: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                 {catItems.map((item) => {
                   const busy = busyIds.has(item.id)
+                  const isDragging = draggedItemId === item.id
+                  const isDragOver = dragOverItemId === item.id && draggedItemId !== item.id
+                  const canDrag = !busy && !reorderingMenu
+
                   return (
                     <article
                       key={item.id}
-                      className={`bg-white rounded-2xl p-4 border shadow-sm flex items-start gap-3 transition-all ${
-                        item.is_available ? 'border-stone-200' : 'border-red-200 bg-red-50/30'
-                      } ${busy ? 'opacity-60' : ''}`}
+                      draggable={canDrag}
+                      onDragStart={(e) => canDrag && handleMenuDragStart(e, item.id)}
+                      onDragOver={(e) => canDrag && handleMenuDragOver(e, item)}
+                      onDragLeave={() => handleMenuDragLeave(item.id)}
+                      onDrop={(e) => canDrag && handleMenuDrop(e, item)}
+                      onDragEnd={handleMenuDragEnd}
+                      className={`bg-white rounded-2xl p-4 border shadow-sm flex items-start gap-2.5 transition-all ${
+                        isDragOver
+                          ? 'border-brand-500 ring-2 ring-brand-400/50 bg-brand-50/30 scale-[1.01]'
+                          : item.is_available
+                          ? 'border-stone-200 hover:border-stone-300'
+                          : 'border-red-200 bg-red-50/30'
+                      } ${busy ? 'opacity-60' : ''} ${isDragging ? 'opacity-40 scale-95' : ''} ${
+                        canDrag ? 'cursor-grab active:cursor-grabbing' : ''
+                      }`}
                     >
+                      <span
+                        className="text-stone-300 hover:text-stone-500 pt-3 px-0.5 shrink-0 transition-colors"
+                        title="Geser (drag & drop) untuk mengubah urutan tampil"
+                        aria-hidden="true"
+                      >
+                        <i className="fa-solid fa-grip-vertical text-xs"></i>
+                      </span>
+
                       <div
                         className={`w-12 h-12 rounded-xl ${item.icon_bg_class} flex items-center justify-center text-xl text-brand-700 shrink-0 overflow-hidden`}
                       >
@@ -429,17 +573,18 @@ export const MenuManagementPage: React.FC = () => {
         item={editing}
         branchId={activeBranchId}
         categories={categories}
+        nextSortOrder={nextSortOrderForNewItem}
         onClose={() => setFormOpen(false)}
         onSaved={handleSaved}
       />
 
-	  <BulkMenuItemModal
-		isOpen={bulkModalOpen}
-		branchId={activeBranchId}
-		categories={categories}
-		onClose={() => setBulkModalOpen(false)}
-		onSaved={handleBulkSaved}
-	  />
+      <BulkMenuItemModal
+        isOpen={bulkModalOpen}
+        branchId={activeBranchId}
+        categories={categories}
+        onClose={() => setBulkModalOpen(false)}
+        onSaved={handleBulkSaved}
+      />
 
       <CategoryManagementModal
         isOpen={categoryModalOpen}

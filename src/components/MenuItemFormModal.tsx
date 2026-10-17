@@ -8,6 +8,7 @@ interface MenuItemFormModalProps {
   item: MenuItem | null
   branchId: string
   categories: Category[]
+  nextSortOrder?: number
   onClose: () => void
   onSaved: (saved: MenuItem, mode: 'created' | 'updated') => void
 }
@@ -41,7 +42,7 @@ const BG_CHOICES = [
 
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024
 
-function emptyForm(branchId: string, categories: Category[]): MenuItemInput {
+function emptyForm(branchId: string, categories: Category[], nextSortOrder = 0): MenuItemInput {
   return {
     branch_id: branchId,
     category_id: categories[0]?.id ?? '',
@@ -53,7 +54,7 @@ function emptyForm(branchId: string, categories: Category[]): MenuItemInput {
     image_url: '',
     tag: '',
     is_available: true,
-    sort_order: 0,
+    sort_order: nextSortOrder,
   }
 }
 
@@ -62,10 +63,11 @@ export const MenuItemFormModal: React.FC<MenuItemFormModalProps> = ({
   item,
   branchId,
   categories,
+  nextSortOrder = 0,
   onClose,
   onSaved,
 }) => {
-  const [form, setForm] = useState<MenuItemInput>(() => emptyForm(branchId, categories))
+  const [form, setForm] = useState<MenuItemInput>(() => emptyForm(branchId, categories, nextSortOrder))
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -94,9 +96,9 @@ export const MenuItemFormModal: React.FC<MenuItemFormModalProps> = ({
         sort_order: item.sort_order,
       })
     } else {
-      setForm(emptyForm(branchId, categories))
+      setForm(emptyForm(branchId, categories, nextSortOrder))
     }
-  }, [isOpen, item, branchId, categories])
+  }, [isOpen, item, branchId, categories, nextSortOrder])
 
   useEffect(() => {
     if (!isOpen) return
@@ -284,8 +286,8 @@ export const MenuItemFormModal: React.FC<MenuItemFormModalProps> = ({
             </p>
           </div>
 
-          {/* Price, tag, sort order */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {/* Price & tag */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label htmlFor="mi-price" className="block text-xs font-bold text-stone-700 mb-1">
                 Harga *
@@ -322,22 +324,6 @@ export const MenuItemFormModal: React.FC<MenuItemFormModalProps> = ({
                 placeholder="Best, Favorit, Baru"
                 className="w-full px-3 py-2 text-xs bg-stone-50 border border-stone-300 rounded-xl focus:outline-none focus:border-brand-500"
               />
-            </div>
-
-            <div>
-              <label htmlFor="mi-sort" className="block text-xs font-bold text-stone-700 mb-1">
-                Urutan tampil
-              </label>
-              <input
-                id="mi-sort"
-                type="number"
-                min={0}
-                max={9999}
-                value={form.sort_order}
-                onChange={(e) => update('sort_order', Number(e.target.value))}
-                className="w-full px-3 py-2 text-xs bg-stone-50 border border-stone-300 rounded-xl font-mono focus:outline-none focus:border-brand-500"
-              />
-              <p className="text-[10px] text-stone-400 mt-1">Angka kecil tampil lebih dulu</p>
             </div>
           </div>
 
