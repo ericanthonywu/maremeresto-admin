@@ -67,9 +67,15 @@ function useChime() {
     }
   }, [])
 
-  // Auto-unlock audio and speech on first user gesture
+  // Auto-unlock audio and speech on first user gesture completely silently
   useEffect(() => {
     const unlock = () => {
+      // Remove listeners immediately so it executes only once and never again
+      window.removeEventListener('click', unlock)
+      window.removeEventListener('touchstart', unlock)
+      window.removeEventListener('keydown', unlock)
+      window.removeEventListener('pointerdown', unlock)
+
       type AudioCtor = typeof AudioContext
       const Ctor: AudioCtor | undefined =
         window.AudioContext ?? (window as unknown as { webkitAudioContext?: AudioCtor }).webkitAudioContext
@@ -83,18 +89,18 @@ function useChime() {
       if (ctxRef.current && ctxRef.current.state === 'suspended') {
         ctxRef.current.resume().catch(() => {})
       }
-      if (audioRef.current) {
-        // In modern browsers (Chrome/Safari), playing and immediately pausing
-        // during a user gesture registers media authorization so the tab is allowed
-        // to play audio even when running in the background!
-        const p = audioRef.current.play()
-        if (p) {
-          p.then(() => {
-            audioRef.current?.pause()
-            if (audioRef.current) audioRef.current.currentTime = 0
-          }).catch(() => {})
-        }
+
+      // Unlock HTML5 Audio via a 100% silent dummy sound (0.01s base64 WAV)
+      // This grants browser media playback permission for background tabs
+      // without ever playing any split-second fragment of the real voice file!
+      try {
+        const silentAudio = new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=')
+        silentAudio.volume = 0
+        void silentAudio.play().catch(() => {})
+      } catch {
+        /* ignore */
       }
+
       if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
         if (window.speechSynthesis.paused) {
           window.speechSynthesis.resume()
