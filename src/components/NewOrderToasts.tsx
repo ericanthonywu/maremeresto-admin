@@ -61,8 +61,15 @@ export const NewOrderToasts: React.FC = () => {
                   {notice.orderType === 'delivery'
                     ? 'Diantar'
                     : notice.orderType === 'pickup'
-                      ? 'Ambil sendiri'
-                      : 'Dijadwalkan'}
+                      ? 'Ambil di cabang'
+                      : notice.scheduledAt
+                        ? `Jadwal: ${new Date(notice.scheduledAt).toLocaleString('id-ID', {
+                            day: 'numeric',
+                            month: 'short',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}`
+                        : 'Dijadwalkan'}
                   {notice.branchName ? ` · ${notice.branchName}` : ''}
                 </span>
               </div>

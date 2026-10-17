@@ -13,6 +13,7 @@ export interface NewOrderNotice {
   grandTotal: number
   branchName?: string
   orderType: Order['order_type']
+  scheduledAt?: string
   receivedAt: number
 }
 
@@ -126,6 +127,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         grandTotal: order.grand_total,
         branchName: order.branch?.name,
         orderType: order.order_type,
+        scheduledAt: order.scheduled_at,
         receivedAt: Date.now(),
       }
 

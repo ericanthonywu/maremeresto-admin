@@ -17,6 +17,59 @@ export const STATUS_LABELS: Record<OrderStatus, { label: string; bg: string; tex
   refunded: { label: 'Direfund', bg: 'bg-purple-100', text: 'text-purple-800' },
 }
 
+export function statusBadgeFor(order: Order): { label: string; bg: string; text: string } {
+  if (order.order_type === 'pickup') {
+    switch (order.status) {
+      case 'accepted':
+      case 'preparing':
+      case 'ready':
+      case 'on_the_way':
+        return { label: 'Belum diambil', bg: 'bg-amber-100', text: 'text-amber-800' }
+      case 'picked_up':
+      case 'delivered':
+      case 'completed':
+        return { label: 'Sudah diambil', bg: 'bg-emerald-100', text: 'text-emerald-800' }
+      default:
+        break
+    }
+  }
+  return STATUS_LABELS[order.status] ?? STATUS_LABELS.pending
+}
+
+export function nextActionLabelFor(order: Order, next: OrderStatus): string {
+  if (next === 'accepted') return '→ Terima'
+  if (next === 'completed') {
+    return order.order_type === 'pickup' ? '→ Sudah diambil' : '→ Sedang diantar'
+  }
+  return `→ ${STATUS_LABELS[next]?.label ?? next}`
+}
+
+function formatScheduledShort(iso?: string): string | null {
+  if (!iso) return null
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return null
+  return d.toLocaleString('id-ID', {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function formatScheduledFull(iso?: string): string | null {
+  if (!iso) return null
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return null
+  return d.toLocaleString('id-ID', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
 /**
  * A refund can be issued from any status once the payment has settled,
  * mirroring the server's rule in RefundPayment — not just the ordinary
@@ -72,9 +125,11 @@ export const OrderRow: React.FC<OrderRowProps> = ({
   onReject,
   onRefund,
 }) => {
-  const st = STATUS_LABELS[order.status] ?? STATUS_LABELS.pending
+  const st = statusBadgeFor(order)
   const next = nextStatusFor(order)
   const isUnread = !order.acknowledged_at
+  const scheduledShort = order.order_type === 'scheduled' ? formatScheduledShort(order.scheduled_at) : null
+  const scheduledFull = order.order_type === 'scheduled' ? formatScheduledFull(order.scheduled_at) : null
 
   return (
     <React.Fragment>
@@ -120,13 +175,19 @@ export const OrderRow: React.FC<OrderRowProps> = ({
         </td>
 
         <td className="px-4 py-3 whitespace-nowrap">
-          <span className="text-stone-700">
+          <span className="text-stone-700 font-semibold">
             {order.order_type === 'delivery'
               ? 'Antar'
               : order.order_type === 'pickup'
-                ? 'Ambil'
+                ? 'Ambil di Cabang'
                 : 'Jadwal'}
           </span>
+          {scheduledShort && (
+            <span className="mt-0.5 flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-100/80 px-1.5 py-0.5 rounded-md w-fit">
+              <i className="fa-regular fa-clock text-[9px]" aria-hidden="true"></i>
+              {scheduledShort}
+            </span>
+          )}
           {order.order_type !== 'pickup' && order.delivery_distance_km > 0 && (
             <span className="block text-[10px] text-stone-400 font-mono">
               {order.delivery_distance_km} km
@@ -168,10 +229,16 @@ export const OrderRow: React.FC<OrderRowProps> = ({
               <button
                 onClick={() => onAdvanceStatus(order)}
                 disabled={isBusy}
-                title={next === 'completed' && order.order_type !== 'pickup' ? 'Tandai pesanan sedang diantar' : undefined}
+                title={
+                  next === 'completed'
+                    ? order.order_type === 'pickup'
+                      ? 'Tandai pesanan sudah diambil pelanggan'
+                      : 'Tandai pesanan sedang diantar'
+                    : undefined
+                }
                 className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg text-[10px] font-bold shadow-sm transition-all active:scale-95 whitespace-nowrap"
               >
-                {isBusy ? '...' : next === 'completed' && order.order_type !== 'pickup' ? '→ Sedang diantar' : `→ ${STATUS_LABELS[next]?.label ?? next}`}
+                {isBusy ? '...' : nextActionLabelFor(order, next)}
               </button>
             )}
 
@@ -229,10 +296,30 @@ export const OrderRow: React.FC<OrderRowProps> = ({
 
               <div className="space-y-1.5">
                 <h5 className="font-bold text-stone-900 text-[11px] uppercase tracking-wider">
-                  {order.order_type === 'pickup' ? 'Pengambilan' : 'Pengantaran'}
+                  {order.order_type === 'pickup' ? 'Pengambilan di Cabang' : 'Pengantaran'}
                 </h5>
+                {scheduledFull && (
+                  <div className="rounded-lg border border-amber-300 bg-amber-50 p-2 text-[11px] font-bold text-amber-900 flex items-center gap-1.5">
+                    <i className="fa-regular fa-clock text-amber-700" aria-hidden="true"></i>
+                    <span>Jadwal Antar: {scheduledFull}</span>
+                  </div>
+                )}
                 {order.order_type === 'pickup' ? (
-                  <p className="text-stone-600">Diambil langsung di outlet</p>
+                  <>
+                    <p className="text-stone-700 font-medium">
+                      Diambil langsung di outlet{order.branch?.name ? ` (${order.branch.name})` : ''}
+                    </p>
+                    {order.delivery_notes && (
+                      <p className="text-[10px] text-amber-700 italic">
+                        Catatan: {order.delivery_notes}
+                      </p>
+                    )}
+                    {order.status === 'completed' && (
+                      <p className="rounded-lg border border-emerald-200 bg-emerald-50 p-2 text-[10px] font-semibold text-emerald-800">
+                        Pesanan sudah diambil oleh pelanggan di cabang.
+                      </p>
+                    )}
+                  </>
                 ) : (
                   <>
                     <p className="text-stone-700">{order.delivery_address || '-'}</p>

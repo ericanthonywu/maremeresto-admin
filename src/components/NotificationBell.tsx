@@ -116,7 +116,18 @@ export const NotificationBell: React.FC = () => {
                       <span className="text-[11px] text-stone-600 block truncate">
                         {n.customerName} · {formatRupiah(n.grandTotal)}
                       </span>
-                      <span className="text-[10px] text-stone-400">
+                      <span className="text-[10px] text-stone-400 block">
+                        {n.orderType === 'pickup'
+                          ? 'Ambil di cabang'
+                          : n.orderType === 'scheduled' && n.scheduledAt
+                            ? `Jadwal: ${new Date(n.scheduledAt).toLocaleString('id-ID', {
+                                day: 'numeric',
+                                month: 'short',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}`
+                            : 'Antar'}
+                        {' · '}
                         {new Date(n.receivedAt).toLocaleTimeString('id-ID', {
                           hour: '2-digit',
                           minute: '2-digit',
