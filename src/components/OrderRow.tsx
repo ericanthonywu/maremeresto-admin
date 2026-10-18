@@ -212,10 +212,27 @@ export const OrderRow: React.FC<OrderRowProps> = ({
               {scheduledShort}
             </span>
           )}
-          {order.order_type !== 'pickup' && order.delivery_distance_km > 0 && (
-            <span className="block text-[10px] text-stone-400 font-mono">
-              {order.delivery_distance_km} km
-            </span>
+          {order.order_type !== 'pickup' && (
+            <div className="flex items-center gap-1.5 mt-0.5">
+              {order.delivery_distance_km > 0 && (
+                <span className="text-[10px] text-stone-400 font-mono">
+                  {order.delivery_distance_km} km
+                </span>
+              )}
+              {order.delivery_lat != null && order.delivery_lon != null && (
+                <a
+                  href={`https://www.google.com/maps?q=${order.delivery_lat},${order.delivery_lon}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="text-emerald-600 hover:text-emerald-700 font-bold text-[10px] inline-flex items-center gap-0.5 hover:underline"
+                  title="Buka titik Google Maps"
+                >
+                  <i className="fa-solid fa-map-location-dot" aria-hidden="true" />
+                  <span>Maps</span>
+                </a>
+              )}
+            </div>
           )}
         </td>
 
@@ -349,25 +366,46 @@ export const OrderRow: React.FC<OrderRowProps> = ({
                     )}
                   </>
                 ) : (
-                  <>
-                    <p className="text-stone-700">{order.delivery_address || '-'}</p>
-                    {order.delivery_notes && (
-                      <p className="text-[10px] text-amber-700 italic">
-                        Patokan: {order.delivery_notes}
+                  <div className="rounded-xl border border-stone-200 bg-stone-50/80 p-3 space-y-2">
+                    <div>
+                      <span className="block text-[10px] uppercase font-bold text-stone-400 tracking-wider">
+                        Alamat Pengiriman (Titik Antar)
+                      </span>
+                      <p className="text-stone-800 text-xs font-semibold leading-relaxed mt-0.5">
+                        {order.delivery_address || '-'}
                       </p>
+                    </div>
+
+                    {order.delivery_notes && (
+                      <div className="text-[11px] bg-amber-50 border border-amber-200 text-amber-900 rounded-lg p-2 flex items-start gap-1.5">
+                        <i className="fa-solid fa-note-sticky text-amber-600 mt-0.5 text-xs shrink-0" aria-hidden="true" />
+                        <div>
+                          <strong className="font-semibold">Patokan / Catatan:</strong>{' '}
+                          <span>{order.delivery_notes}</span>
+                        </div>
+                      </div>
                     )}
+
                     {order.delivery_lat != null && order.delivery_lon != null && (
-                      <a
-                        href={`https://www.google.com/maps/search/?api=1&query=${order.delivery_lat},${order.delivery_lon}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-brand-600 hover:underline font-bold text-[11px] inline-flex items-center gap-1"
-                      >
-                        <i className="fa-solid fa-map-location-dot" aria-hidden="true"></i>
-                        Buka di Google Maps
-                      </a>
+                      <div className="pt-1 flex flex-wrap items-center gap-2">
+                        <span className="text-[10px] font-mono bg-stone-200/80 text-stone-700 px-2 py-0.5 rounded-md">
+                          📍 {order.delivery_lat.toFixed(6)}, {order.delivery_lon.toFixed(6)}
+                          {order.delivery_distance_km > 0 && ` (${order.delivery_distance_km.toFixed(1)} km)`}
+                        </span>
+                        <a
+                          href={`https://www.google.com/maps?q=${order.delivery_lat},${order.delivery_lon}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition-all active:scale-95"
+                          title="Buka titik koordinat pelanggan langsung di Google Maps"
+                        >
+                          <i className="fa-solid fa-map-location-dot" aria-hidden="true" />
+                          <span>Buka di Google Maps</span>
+                          <i className="fa-solid fa-arrow-up-right-from-square text-[10px] opacity-80" aria-hidden="true" />
+                        </a>
+                      </div>
                     )}
-                  </>
+                  </div>
                 )}
                 {order.order_type !== 'pickup' && order.status === 'completed' && (
                   <p className="rounded-lg border border-emerald-200 bg-emerald-50 p-2 text-[10px] font-semibold text-emerald-800">
