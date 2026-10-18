@@ -144,7 +144,7 @@ export const adminApi = {
   // operator can pick an address for a branch instead of typing raw
   // coordinates by hand.
   searchAddress: async (query: string, signal?: AbortSignal): Promise<GeocodeResult[]> => {
-    const res = await api.get('/geocode/search', { params: { q: query }, signal })
+    const res = await api.get('/geocode/search', { params: { q: query, scope: 'soloraya' }, signal })
     return res.data.data ?? []
   },
 
