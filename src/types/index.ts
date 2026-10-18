@@ -152,6 +152,7 @@ export interface MenuItem {
   tag?: string
   is_available: boolean
   sort_order: number
+  is_best_seller?: boolean
 }
 
 /** Payload for creating or updating a menu item from the admin form. */
@@ -167,6 +168,7 @@ export interface MenuItemInput {
   tag: string
   is_available: boolean
   sort_order: number
+  is_best_seller?: boolean
 }
 
 export interface BranchSettings {

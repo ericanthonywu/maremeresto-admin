@@ -65,6 +65,7 @@ export const BulkMenuItemModal: React.FC<BulkMenuItemModalProps> = ({
       image_url: '',
       tag: '',
       is_available: entry.is_available,
+      is_best_seller: false,
       sort_order: index,
     }))
 

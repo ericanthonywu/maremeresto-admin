@@ -267,6 +267,11 @@ export const adminApi = {
     return res.data.data
   },
 
+  toggleItemBestSeller: async (id: string, isBestSeller: boolean) => {
+    const res = await api.put(`/admin/menu/${id}/best-seller`, { is_best_seller: isBestSeller })
+    return res.data.data
+  },
+
   deleteMenuItem: async (id: string) => {
     const res = await api.delete(`/admin/menu/${id}`)
     return res.data.data

@@ -6,7 +6,7 @@ import { CategoryManagementModal } from '../components/CategoryManagementModal'
 import { BulkMenuItemModal } from '../components/BulkMenuItemModal'
 import type { Category, MenuItem } from '../types'
 
-type AvailabilityFilter = 'all' | 'available' | 'unavailable'
+type AvailabilityFilter = 'all' | 'available' | 'unavailable' | 'best_seller'
 
 export const MenuManagementPage: React.FC = () => {
   const { activeBranchId, activeBranch } = useAuth()
@@ -89,6 +89,29 @@ export const MenuManagementPage: React.FC = () => {
     }
   }
 
+  const handleToggleBestSeller = async (item: MenuItem) => {
+    setBusy(item.id, true)
+    const nextVal = !item.is_best_seller
+    setItems((prev) =>
+      prev.map((i) => (i.id === item.id ? { ...i, is_best_seller: nextVal } : i))
+    )
+    try {
+      await adminApi.toggleItemBestSeller(item.id, nextVal)
+      showNotice(
+        nextVal
+          ? `"${item.name}" ditandai sebagai Best Seller.`
+          : `Status Best Seller "${item.name}" dinonaktifkan.`
+      )
+    } catch (err) {
+      setItems((prev) =>
+        prev.map((i) => (i.id === item.id ? { ...i, is_best_seller: item.is_best_seller } : i))
+      )
+      setError(errorMessage(err, 'Gagal mengubah status Best Seller.'))
+    } finally {
+      setBusy(item.id, false)
+    }
+  }
+
   const handleDelete = async (item: MenuItem) => {
     if (
       !window.confirm(
@@ -157,6 +180,7 @@ export const MenuManagementPage: React.FC = () => {
       if (categoryFilter !== 'all' && i.category_id !== categoryFilter) return false
       if (availabilityFilter === 'available' && !i.is_available) return false
       if (availabilityFilter === 'unavailable' && i.is_available) return false
+      if (availabilityFilter === 'best_seller' && !i.is_best_seller) return false
       if (!query) return true
       return (
         i.name.toLowerCase().includes(query) ||
@@ -392,12 +416,13 @@ export const MenuManagementPage: React.FC = () => {
         </select>
 
         {/* Availability Filter Pills */}
-        <div className="flex items-center bg-stone-100 p-1 rounded-xl gap-1 border border-stone-200/60">
+        <div className="flex items-center bg-stone-100 p-1 rounded-xl gap-1 border border-stone-200/60 flex-wrap">
           {(
             [
               { id: 'all', label: 'Semua' },
               { id: 'available', label: 'Tersedia' },
               { id: 'unavailable', label: 'Habis' },
+              { id: 'best_seller', label: '⭐ Best Seller' },
             ] as const
           ).map((opt) => (
             <button
@@ -497,6 +522,12 @@ export const MenuManagementPage: React.FC = () => {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <h4 className="font-bold text-stone-900 text-xs truncate">{item.name}</h4>
+                          {item.is_best_seller && (
+                            <span className="bg-amber-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded uppercase flex items-center gap-1 shadow-sm">
+                              <i className="fa-solid fa-star text-[7px]" aria-hidden="true"></i>
+                              <span>Best Seller</span>
+                            </span>
+                          )}
                           {item.tag && (
                             <span className="bg-amber-100 text-amber-800 text-[8px] font-extrabold px-1.5 py-0.5 rounded uppercase">
                               {item.tag}
@@ -508,12 +539,28 @@ export const MenuManagementPage: React.FC = () => {
                           {item.description || <span className="italic">Tanpa deskripsi</span>}
                         </p>
 
-                        <div className="flex items-center justify-between mt-2 gap-2">
+                        <div className="flex items-center justify-between mt-2 gap-2 flex-wrap">
                           <span className="font-extrabold text-xs text-brand-700">
                             {formatRupiah(item.price)}
                           </span>
 
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                            {/* Best Seller quick toggle */}
+                            <button
+                              type="button"
+                              onClick={() => handleToggleBestSeller(item)}
+                              disabled={busy}
+                              title={item.is_best_seller ? 'Hapus status Best Seller' : 'Tandai sebagai Best Seller'}
+                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[10px] font-bold border transition-all cursor-pointer ${
+                                item.is_best_seller
+                                  ? 'bg-amber-500 text-white border-amber-600 shadow-sm hover:bg-amber-600'
+                                  : 'bg-stone-50 hover:bg-amber-50 text-stone-600 hover:text-amber-700 border-stone-200 hover:border-amber-200'
+                              } ${busy ? 'opacity-50 pointer-events-none' : ''}`}
+                            >
+                              <i className="fa-solid fa-star text-[9px]" aria-hidden="true"></i>
+                              <span>{item.is_best_seller ? 'Best Seller' : 'Set Best'}</span>
+                            </button>
+
                             {/* Quick action button / checkbox to hide item if stock is out */}
                             <label
                               className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[10px] font-bold border transition-all cursor-pointer select-none ${
@@ -534,7 +581,7 @@ export const MenuManagementPage: React.FC = () => {
                                 disabled={busy}
                                 className="w-3.5 h-3.5 rounded text-red-600 border-stone-300 focus:ring-red-500 cursor-pointer"
                               />
-                              <span>{!item.is_available ? 'Stok Habis (Hide)' : 'Hide jika habis'}</span>
+                              <span>{!item.is_available ? 'Stok Habis' : 'Tersedia'}</span>
                             </label>
 
                             <button

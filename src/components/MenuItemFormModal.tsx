@@ -54,6 +54,7 @@ function emptyForm(branchId: string, categories: Category[], nextSortOrder = 0):
     image_url: '',
     tag: '',
     is_available: true,
+    is_best_seller: false,
     sort_order: nextSortOrder,
   }
 }
@@ -93,6 +94,7 @@ export const MenuItemFormModal: React.FC<MenuItemFormModalProps> = ({
         image_url: item.image_url ?? '',
         tag: item.tag ?? '',
         is_available: item.is_available,
+        is_best_seller: item.is_best_seller ?? false,
         sort_order: item.sort_order,
       })
     } else {
@@ -428,6 +430,25 @@ export const MenuItemFormModal: React.FC<MenuItemFormModalProps> = ({
             </div>
           </div>
 
+          {/* Best Seller Toggle */}
+          <label className="flex items-center justify-between gap-3 p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200/90 cursor-pointer transition-all hover:bg-amber-50">
+            <span className="min-w-0">
+              <span className="flex items-center gap-1.5 text-xs font-bold text-amber-950">
+                <i className="fa-solid fa-star text-amber-500 text-xs" aria-hidden="true"></i>
+                <span>Tampilkan sebagai Menu Best Seller</span>
+              </span>
+              <span className="block text-[10px] text-amber-800/80 mt-0.5">
+                Menu ini akan muncul di bagian preview "Menu Best Seller" di halaman utama pelanggan.
+              </span>
+            </span>
+            <input
+              type="checkbox"
+              checked={form.is_best_seller ?? false}
+              onChange={(e) => update('is_best_seller', e.target.checked)}
+              className="w-5 h-5 rounded text-amber-500 border-amber-300 focus:ring-amber-400 shrink-0 cursor-pointer"
+            />
+          </label>
+
           {/* Availability */}
           <label className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-stone-50 border border-stone-200 cursor-pointer">
             <span className="min-w-0">
@@ -440,7 +461,7 @@ export const MenuItemFormModal: React.FC<MenuItemFormModalProps> = ({
               type="checkbox"
               checked={form.is_available}
               onChange={(e) => update('is_available', e.target.checked)}
-              className="w-5 h-5 rounded text-brand-600 focus:ring-brand-500 shrink-0"
+              className="w-5 h-5 rounded text-brand-600 focus:ring-brand-500 shrink-0 cursor-pointer"
             />
           </label>
 
