@@ -139,14 +139,53 @@ interface OrderRowProps {
   onRefund: (order: Order) => void
 }
 
+function biteshipStatusInfo(status?: string): { label: string; color: string } {
+  switch ((status || '').toLowerCase().trim()) {
+    case 'placed':
+      return { label: 'Menunggu Konfirmasi', color: 'bg-amber-50 text-amber-800 border-amber-200' }
+    case 'confirmed':
+      return { label: 'Mencari Driver', color: 'bg-amber-50 text-amber-800 border-amber-200' }
+    case 'scheduled':
+      return { label: 'Dijadwalkan', color: 'bg-amber-50 text-amber-800 border-amber-200' }
+    case 'allocated':
+      return { label: 'Driver Ditemukan', color: 'bg-blue-50 text-blue-800 border-blue-200' }
+    case 'picking_up':
+      return { label: 'Menuju Outlet', color: 'bg-indigo-50 text-indigo-800 border-indigo-200' }
+    case 'picked':
+      return { label: 'Diambil Driver', color: 'bg-emerald-50 text-emerald-800 border-emerald-200' }
+    case 'in_transit':
+      return { label: 'Dalam Perjalanan', color: 'bg-emerald-50 text-emerald-800 border-emerald-200' }
+    case 'dropping_off':
+      return { label: 'Menuju Tujuan', color: 'bg-emerald-50 text-emerald-800 border-emerald-200' }
+    case 'delivered':
+      return { label: 'Terkirim', color: 'bg-emerald-100 text-emerald-900 border-emerald-300' }
+    case 'on_hold':
+      return { label: 'Ditahan Kurir', color: 'bg-amber-50 text-amber-900 border-amber-300' }
+    case 'return_in_transit':
+      return { label: 'Retur ke Outlet', color: 'bg-orange-50 text-orange-800 border-orange-200' }
+    case 'returned':
+      return { label: 'Kembali ke Outlet', color: 'bg-red-50 text-red-700 border-red-200' }
+    case 'disposed':
+      return { label: 'Dihentikan', color: 'bg-red-50 text-red-700 border-red-200' }
+    case 'cancelled':
+      return { label: 'Kurir Dibatalkan', color: 'bg-red-50 text-red-700 border-red-200' }
+    case 'rejected':
+      return { label: 'Ditolak Kurir', color: 'bg-red-50 text-red-700 border-red-200' }
+    case 'courier_not_found':
+      return { label: 'Driver Tidak Ditemukan', color: 'bg-red-50 text-red-700 border-red-200' }
+    default:
+      return { label: status || 'Memproses', color: 'bg-stone-100 text-stone-700 border-stone-200' }
+  }
+}
+
 function canDispatchBiteship(order: Order): boolean {
   if (order.order_type === 'pickup') return false
   if (order.status === 'pending' || order.status === 'cancelled' || order.status === 'rejected' || order.status === 'refunded') {
     return false
   }
   if (!order.biteship_order_id) return true
-  const st = (order.biteship_status || '').toLowerCase()
-  return st === 'cancelled' || st === 'rejected' || st === 'courier_not_found'
+  const st = (order.biteship_status || '').toLowerCase().trim()
+  return st === 'cancelled' || st === 'rejected' || st === 'courier_not_found' || st === 'returned'
 }
 
 export const OrderRow: React.FC<OrderRowProps> = ({
@@ -239,8 +278,11 @@ export const OrderRow: React.FC<OrderRowProps> = ({
                 </span>
               )}
               {order.biteship_status && (
-                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-stone-100 text-stone-700 border border-stone-200">
-                  {order.biteship_status}
+                <span
+                  title={`Status Biteship: ${order.biteship_status}`}
+                  className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${biteshipStatusInfo(order.biteship_status).color}`}
+                >
+                  {biteshipStatusInfo(order.biteship_status).label}
                 </span>
               )}
               {order.delivery_distance_km > 0 && (
@@ -482,8 +524,11 @@ export const OrderRow: React.FC<OrderRowProps> = ({
                         Kurir: {order.courier_name || 'GoSend Instant'}
                       </span>
                       {order.biteship_status && (
-                        <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-white border border-emerald-200 text-emerald-800 uppercase">
-                          {order.biteship_status}
+                        <span
+                          title={`Status Biteship: ${order.biteship_status}`}
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded border ${biteshipStatusInfo(order.biteship_status).color}`}
+                        >
+                          {biteshipStatusInfo(order.biteship_status).label}
                         </span>
                       )}
                     </div>
