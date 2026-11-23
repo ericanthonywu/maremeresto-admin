@@ -134,8 +134,19 @@ interface OrderRowProps {
   highlightRef?: React.Ref<HTMLTableRowElement>
   onToggleExpand: () => void
   onAdvanceStatus: (order: Order) => void
+  onDispatchCourier: (order: Order, courierCompany?: 'gojek' | 'grab') => void
   onReject: (order: Order) => void
   onRefund: (order: Order) => void
+}
+
+function canDispatchBiteship(order: Order): boolean {
+  if (order.order_type === 'pickup') return false
+  if (order.status === 'pending' || order.status === 'cancelled' || order.status === 'rejected' || order.status === 'refunded') {
+    return false
+  }
+  if (!order.biteship_order_id) return true
+  const st = (order.biteship_status || '').toLowerCase()
+  return st === 'cancelled' || st === 'rejected' || st === 'courier_not_found'
 }
 
 export const OrderRow: React.FC<OrderRowProps> = ({
@@ -146,11 +157,14 @@ export const OrderRow: React.FC<OrderRowProps> = ({
   highlightRef,
   onToggleExpand,
   onAdvanceStatus,
+  onDispatchCourier,
   onReject,
   onRefund,
 }) => {
   const st = statusBadgeFor(order)
   const next = nextStatusFor(order)
+  const canDispatch = canDispatchBiteship(order)
+  const defaultCourier: 'gojek' | 'grab' = order.courier_company === 'grab' ? 'grab' : 'gojek'
   const isUnread = !order.acknowledged_at
   const scheduledShort = order.order_type === 'scheduled' ? formatScheduledShort(order.scheduled_at) : null
   const scheduledFull = order.order_type === 'scheduled' ? formatScheduledFull(order.scheduled_at) : null
@@ -213,7 +227,17 @@ export const OrderRow: React.FC<OrderRowProps> = ({
             </span>
           )}
           {order.order_type !== 'pickup' && (
-            <div className="flex items-center gap-1.5 mt-0.5">
+            <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+              {order.courier_name && (
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">
+                  {order.courier_name}
+                </span>
+              )}
+              {order.biteship_status && (
+                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-stone-100 text-stone-700 border border-stone-200">
+                  {order.biteship_status}
+                </span>
+              )}
               {order.delivery_distance_km > 0 && (
                 <span className="text-[10px] text-stone-400 font-mono">
                   {order.delivery_distance_km} km
@@ -270,7 +294,16 @@ export const OrderRow: React.FC<OrderRowProps> = ({
 
         <td className="px-4 py-3">
           <div className="flex items-center justify-end gap-1.5">
-            {next && (
+            {order.order_type !== 'pickup' && canDispatch ? (
+              <button
+                onClick={() => onDispatchCourier(order, defaultCourier)}
+                disabled={isBusy}
+                title={`Panggil kurir ${order.courier_name || (defaultCourier === 'grab' ? 'GrabExpress Instant' : 'GoSend Instant')} lewat Biteship`}
+                className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg text-[10px] font-bold shadow-sm transition-all active:scale-95 whitespace-nowrap"
+              >
+                {isBusy ? '...' : `🛵 Panggil ${defaultCourier === 'grab' ? 'Grab' : 'GoSend'}`}
+              </button>
+            ) : next && (
               <button
                 onClick={() => onAdvanceStatus(order)}
                 disabled={isBusy}
@@ -407,7 +440,79 @@ export const OrderRow: React.FC<OrderRowProps> = ({
                     )}
                   </div>
                 )}
-                {order.order_type !== 'pickup' && order.status === 'completed' && (
+                {order.order_type !== 'pickup' && (
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3 space-y-2">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <span className="text-[11px] font-bold text-emerald-950">
+                        Kurir: {order.courier_name || 'GoSend Instant'}
+                      </span>
+                      {order.biteship_status && (
+                        <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-white border border-emerald-200 text-emerald-800 uppercase">
+                          {order.biteship_status}
+                        </span>
+                      )}
+                    </div>
+
+                    {order.biteship_waybill_id && (
+                      <p className="text-[11px] font-mono text-stone-700">
+                        Resi: <strong>{order.biteship_waybill_id}</strong>
+                      </p>
+                    )}
+
+                    {(order.driver_name || order.driver_phone || order.driver_plate) && (
+                      <p className="text-[11px] text-stone-800">
+                        Driver: <strong>{order.driver_name || '-'}</strong>
+                        {order.driver_plate ? ` · ${order.driver_plate}` : ''}
+                        {order.driver_phone ? ` · ${order.driver_phone}` : ''}
+                      </p>
+                    )}
+
+                    <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                      {canDispatch && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => onDispatchCourier(order, 'gojek')}
+                            disabled={isBusy}
+                            className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-[11px] font-bold"
+                          >
+                            🛵 Panggil GoSend Instant
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => onDispatchCourier(order, 'grab')}
+                            disabled={isBusy}
+                            className="px-2.5 py-1.5 rounded-lg bg-green-700 hover:bg-green-800 disabled:opacity-50 text-white text-[11px] font-bold"
+                          >
+                            🛵 Panggil GrabExpress Instant
+                          </button>
+                          {order.status === 'accepted' && (
+                            <button
+                              type="button"
+                              onClick={() => onAdvanceStatus(order)}
+                              disabled={isBusy}
+                              className="px-2.5 py-1.5 rounded-lg bg-white hover:bg-stone-100 text-stone-700 border border-stone-300 text-[11px] font-semibold"
+                            >
+                              Tandai Diantar Manual
+                            </button>
+                          )}
+                        </>
+                      )}
+                      {order.biteship_tracking_url && (
+                        <a
+                          href={order.biteship_tracking_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-stone-900 hover:bg-black text-white text-[11px] font-bold"
+                        >
+                          <span>Lacak Biteship</span>
+                          <i className="fa-solid fa-arrow-up-right-from-square text-[9px]" aria-hidden="true" />
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                )}
+                {order.order_type !== 'pickup' && order.status === 'completed' && !order.biteship_order_id && (
                   <p className="rounded-lg border border-emerald-200 bg-emerald-50 p-2 text-[10px] font-semibold text-emerald-800">
                     Pesanan sedang diantar. Pelanggan diarahkan untuk menghubungi WhatsApp outlet.
                   </p>

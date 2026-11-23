@@ -187,6 +187,18 @@ export const adminApi = {
     return res.data.data
   },
 
+  dispatchCourier: async (
+    orderId: string,
+    courierCompany?: 'gojek' | 'grab',
+    expectedVersion?: number
+  ): Promise<Order> => {
+    const res = await api.post(`/admin/orders/${orderId}/dispatch-courier`, {
+      ...(courierCompany ? { courier_company: courierCompany } : {}),
+      ...(expectedVersion ? { expected_version: expectedVersion } : {}),
+    })
+    return res.data.data
+  },
+
   /**
    * Refunds a paid order through Midtrans. `amount` is optional — omit it (or
    * pass 0) to refund whatever is still outstanding. Moves the order to the

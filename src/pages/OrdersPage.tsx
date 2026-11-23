@@ -208,6 +208,23 @@ export const OrdersPage: React.FC = () => {
     }
   }
 
+  const handleDispatchCourier = async (order: Order, courierCompany?: 'gojek' | 'grab') => {
+    const label = courierCompany === 'grab' ? 'GrabExpress Instant' : 'GoSend Instant'
+    if (!window.confirm(`Panggil kurir ${label} untuk pesanan ${order.order_number}?`)) return
+
+    setBusy(order.id, true)
+    setError(null)
+    try {
+      applyUpdated(await adminApi.dispatchCourier(order.id, courierCompany, order.version))
+      void loadOrders()
+    } catch (err) {
+      setError(errorMessage(err, `Gagal memanggil kurir ${label}.`))
+      void loadOrders()
+    } finally {
+      setBusy(order.id, false)
+    }
+  }
+
   const handleReject = async (order: Order) => {
     const reason = window.prompt(
       `Alasan penolakan pesanan ${order.order_number}?\n\nAlasan ini disimpan pada riwayat pesanan.`
@@ -440,6 +457,7 @@ export const OrdersPage: React.FC = () => {
                     highlightRef={highlightRef}
                     onToggleExpand={() => setExpandedId(expandedId === order.id ? null : order.id)}
                     onAdvanceStatus={handleAdvanceStatus}
+                    onDispatchCourier={handleDispatchCourier}
                     onReject={handleReject}
                     onRefund={setRefundTarget}
                   />

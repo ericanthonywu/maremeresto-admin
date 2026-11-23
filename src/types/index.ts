@@ -122,6 +122,19 @@ export interface Order {
   grand_total: number
   promo_code?: string
   scheduled_at?: string
+  courier_company?: 'gojek' | 'grab' | string
+  courier_type?: string
+  courier_name?: string
+  biteship_order_id?: string
+  biteship_tracking_id?: string
+  biteship_waybill_id?: string
+  biteship_tracking_url?: string
+  biteship_status?: string
+  driver_name?: string
+  driver_phone?: string
+  driver_plate?: string
+  driver_photo_url?: string
+  courier_dispatched_at?: string
   acknowledged_at?: string
   rejection_reason?: string
   version: number
