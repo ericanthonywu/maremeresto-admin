@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from './context/AuthContext'
 import { NotificationProvider } from './context/NotificationContext'
 import { AdminWebSocketProvider } from './context/AdminWebSocketContext'
 import { AdminLayout } from './components/AdminLayout'
+import { ErrorBoundary } from './components/ErrorBoundary'
 
 import { LoginPage } from './pages/LoginPage'
 import { DashboardPage } from './pages/DashboardPage'
@@ -71,7 +72,9 @@ export const App: React.FC = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <BrowserRouter>
-        <AppRoutes />
+        <ErrorBoundary>
+          <AppRoutes />
+        </ErrorBoundary>
       </BrowserRouter>
     </AuthProvider>
   </QueryClientProvider>
