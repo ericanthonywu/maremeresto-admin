@@ -196,6 +196,11 @@ export const OrderRow: React.FC<OrderRowProps> = ({
           {isUnread && order.status === 'pending' && (
             <span className="ml-1.5 inline-block w-1.5 h-1.5 rounded-full bg-emerald-500" title="Baru"></span>
           )}
+          {order.branch?.name && (
+            <span className="block text-[10px] font-sans font-semibold text-stone-500 mt-0.5">
+              {order.branch.name}
+            </span>
+          )}
         </td>
 
         <td className="px-4 py-3">
@@ -399,7 +404,36 @@ export const OrderRow: React.FC<OrderRowProps> = ({
                     )}
                   </>
                 ) : (
-                  <div className="rounded-xl border border-stone-200 bg-stone-50/80 p-3 space-y-2">
+                  <div className="space-y-2">
+                    <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3 space-y-1">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <span className="text-[10px] uppercase font-bold text-amber-800 tracking-wider">
+                          Titik Pickup Kurir (Cabang Asal)
+                        </span>
+                        {order.branch?.name && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-white border border-amber-200 text-amber-900">
+                            {order.branch.name}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-stone-800 text-xs font-semibold leading-relaxed">
+                        {order.branch?.address || '-'}
+                      </p>
+                      {(order.branch?.latitude != null && order.branch?.longitude != null) && (
+                        <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                          <span className="text-[10px] font-mono text-stone-600">
+                            📍 {order.branch.latitude.toFixed(5)}, {order.branch.longitude.toFixed(5)}
+                          </span>
+                          {(order.branch.whatsapp_number || order.branch.phone) && (
+                            <span className="text-[10px] font-mono text-stone-600">
+                              · {order.branch.whatsapp_number || order.branch.phone}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="rounded-xl border border-stone-200 bg-stone-50/80 p-3 space-y-2">
                     <div>
                       <span className="block text-[10px] uppercase font-bold text-stone-400 tracking-wider">
                         Alamat Pengiriman (Titik Antar)
@@ -438,6 +472,7 @@ export const OrderRow: React.FC<OrderRowProps> = ({
                         </a>
                       </div>
                     )}
+                    </div>
                   </div>
                 )}
                 {order.order_type !== 'pickup' && (

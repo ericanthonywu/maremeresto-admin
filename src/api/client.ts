@@ -190,11 +190,13 @@ export const adminApi = {
   dispatchCourier: async (
     orderId: string,
     courierCompany?: 'gojek' | 'grab',
-    expectedVersion?: number
+    expectedVersion?: number,
+    expectedBranchId?: string
   ): Promise<Order> => {
     const res = await api.post(`/admin/orders/${orderId}/dispatch-courier`, {
       ...(courierCompany ? { courier_company: courierCompany } : {}),
       ...(expectedVersion ? { expected_version: expectedVersion } : {}),
+      ...(expectedBranchId ? { expected_branch_id: expectedBranchId } : {}),
     })
     return res.data.data
   },

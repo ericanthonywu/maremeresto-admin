@@ -209,13 +209,33 @@ export const OrdersPage: React.FC = () => {
   }
 
   const handleDispatchCourier = async (order: Order, courierCompany?: 'gojek' | 'grab') => {
+    if (isOwner && activeBranchId && order.branch_id !== activeBranchId) {
+      setError(`Pesanan ${order.order_number} bukan milik cabang aktif saat ini. Pindah cabang terlebih dahulu untuk mencegah salah alamat pickup.`)
+      return
+    }
     const label = courierCompany === 'grab' ? 'GrabExpress Instant' : 'GoSend Instant'
-    if (!window.confirm(`Panggil kurir ${label} untuk pesanan ${order.order_number}?`)) return
+    const branchName = order.branch?.name || '-'
+    const branchAddr = order.branch?.address || '-'
+    const destAddr = order.delivery_address || '-'
+    const confirmed = window.confirm(
+      `Panggil kurir ${label} untuk pesanan ${order.order_number}?
+
+` +
+        `ASAL PICKUP (CABANG):
+${branchName}
+${branchAddr}
+
+` +
+        `TUJUAN ANTAR (CUSTOMER):
+${order.customer_name} (${order.customer_phone})
+${destAddr}`
+    )
+    if (!confirmed) return
 
     setBusy(order.id, true)
     setError(null)
     try {
-      applyUpdated(await adminApi.dispatchCourier(order.id, courierCompany, order.version))
+      applyUpdated(await adminApi.dispatchCourier(order.id, courierCompany, order.version, order.branch_id))
       void loadOrders()
     } catch (err) {
       setError(errorMessage(err, `Gagal memanggil kurir ${label}.`))
