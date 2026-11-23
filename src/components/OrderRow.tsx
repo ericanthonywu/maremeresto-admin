@@ -2,16 +2,24 @@ import React from 'react'
 import { formatRupiah } from '../api/client'
 import type { Order, OrderStatus } from '../types'
 
+function formatWhatsAppNumber(raw: string): string {
+  const digits = raw.replace(/\D/g, '')
+  if (!digits) return ''
+  if (digits.startsWith('0')) return `62${digits.slice(1)}`
+  if (digits.startsWith('8')) return `62${digits}`
+  return digits
+}
+
 export const STATUS_LABELS: Record<OrderStatus, { label: string; bg: string; text: string }> = {
   pending: { label: 'Menunggu', bg: 'bg-amber-100', text: 'text-amber-800' },
-  accepted: { label: 'Belum diantar', bg: 'bg-amber-100', text: 'text-amber-800' },
+  accepted: { label: 'Belum Panggil Kurir', bg: 'bg-amber-100', text: 'text-amber-800' },
   // Legacy values can still render safely before migration 8 is applied.
-  preparing: { label: 'Belum diantar', bg: 'bg-amber-100', text: 'text-amber-800' },
-  ready: { label: 'Belum diantar', bg: 'bg-amber-100', text: 'text-amber-800' },
-  on_the_way: { label: 'Belum diantar', bg: 'bg-amber-100', text: 'text-amber-800' },
-  picked_up: { label: 'Sedang diantar', bg: 'bg-emerald-100', text: 'text-emerald-800' },
-  delivered: { label: 'Sedang diantar', bg: 'bg-emerald-100', text: 'text-emerald-800' },
-  completed: { label: 'Sedang diantar', bg: 'bg-emerald-100', text: 'text-emerald-800' },
+  preparing: { label: 'Belum Panggil Kurir', bg: 'bg-amber-100', text: 'text-amber-800' },
+  ready: { label: 'Belum Panggil Kurir', bg: 'bg-amber-100', text: 'text-amber-800' },
+  on_the_way: { label: 'Dalam Pengiriman', bg: 'bg-emerald-100', text: 'text-emerald-800' },
+  picked_up: { label: 'Dalam Pengiriman', bg: 'bg-emerald-100', text: 'text-emerald-800' },
+  delivered: { label: 'Terkirim', bg: 'bg-emerald-100', text: 'text-emerald-800' },
+  completed: { label: 'Selesai', bg: 'bg-emerald-100', text: 'text-emerald-800' },
   rejected: { label: 'Ditolak', bg: 'bg-red-100', text: 'text-red-800' },
   cancelled: { label: 'Dibatalkan', bg: 'bg-red-50', text: 'text-red-600' },
   refunded: { label: 'Direfund', bg: 'bg-purple-100', text: 'text-purple-800' },
@@ -32,6 +40,9 @@ export function statusBadgeFor(order: Order): { label: string; bg: string; text:
       default:
         break
     }
+  } else if (order.biteship_status && order.status !== 'rejected' && order.status !== 'cancelled' && order.status !== 'refunded') {
+    const info = biteshipStatusInfo(order.biteship_status)
+    return { label: info.label, bg: info.color, text: '' }
   }
   return STATUS_LABELS[order.status] ?? STATUS_LABELS.pending
 }
@@ -39,7 +50,7 @@ export function statusBadgeFor(order: Order): { label: string; bg: string; text:
 export function nextActionLabelFor(order: Order, next: OrderStatus): string {
   if (next === 'accepted') return '→ Terima'
   if (next === 'completed') {
-    return order.order_type === 'pickup' ? '→ Sudah diambil' : '→ Sedang diantar'
+    return order.order_type === 'pickup' ? '→ Sudah diambil' : '→ Selesai'
   }
   return `→ ${STATUS_LABELS[next]?.label ?? next}`
 }
@@ -277,17 +288,9 @@ export const OrderRow: React.FC<OrderRowProps> = ({
                   {order.courier_name}
                 </span>
               )}
-              {order.biteship_status && (
-                <span
-                  title={`Status Biteship: ${order.biteship_status}`}
-                  className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${biteshipStatusInfo(order.biteship_status).color}`}
-                >
-                  {biteshipStatusInfo(order.biteship_status).label}
-                </span>
-              )}
-              {order.delivery_distance_km > 0 && (
-                <span className="text-[10px] text-stone-400 font-mono">
-                  {order.delivery_distance_km} km
+              {order.biteship_waybill_id && (
+                <span className="text-[10px] font-mono text-stone-500">
+                  Resi: {order.biteship_waybill_id}
                 </span>
               )}
               {order.delivery_lat != null && order.delivery_lon != null && (
@@ -341,31 +344,37 @@ export const OrderRow: React.FC<OrderRowProps> = ({
 
         <td className="px-4 py-3">
           <div className="flex items-center justify-end gap-1.5">
-            {order.order_type !== 'pickup' && canDispatch ? (
-              <button
-                onClick={() => onDispatchCourier(order, defaultCourier)}
-                disabled={isBusy}
-                title={`Panggil kurir ${order.courier_name || (defaultCourier === 'grab' ? 'GrabExpress Instant' : 'GoSend Instant')} lewat Biteship`}
-                className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg text-[10px] font-bold shadow-sm transition-all active:scale-95 whitespace-nowrap"
-              >
-                {isBusy ? '...' : `🛵 Panggil ${defaultCourier === 'grab' ? 'Grab' : 'GoSend'}`}
-              </button>
-            ) : next && (
+            {order.order_type !== 'pickup' ? (
+              canDispatch ? (
+                <button
+                  onClick={() => onDispatchCourier(order, defaultCourier)}
+                  disabled={isBusy}
+                  title={`Panggil kurir ${order.courier_name || (defaultCourier === 'grab' ? 'GrabExpress Instant' : 'GoSend Instant')} lewat Biteship`}
+                  className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg text-[10px] font-bold shadow-sm transition-all active:scale-95 whitespace-nowrap"
+                >
+                  {isBusy ? '...' : `${order.biteship_order_id ? '🛵 Panggil Ulang' : '🛵 Panggil'} ${defaultCourier === 'grab' ? 'Grab' : 'GoSend'}`}
+                </button>
+              ) : order.biteship_tracking_url ? (
+                <a
+                  href={order.biteship_tracking_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-2.5 py-1 bg-stone-900 hover:bg-black text-white rounded-lg text-[10px] font-bold inline-flex items-center gap-1 whitespace-nowrap"
+                >
+                  <span>Lacak</span>
+                  <i className="fa-solid fa-arrow-up-right-from-square text-[9px]" aria-hidden="true" />
+                </a>
+              ) : null
+            ) : next ? (
               <button
                 onClick={() => onAdvanceStatus(order)}
                 disabled={isBusy}
-                title={
-                  next === 'completed'
-                    ? order.order_type === 'pickup'
-                      ? 'Tandai pesanan sudah diambil pelanggan'
-                      : 'Tandai pesanan sedang diantar'
-                    : undefined
-                }
+                title="Tandai pesanan sudah diambil pelanggan"
                 className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg text-[10px] font-bold shadow-sm transition-all active:scale-95 whitespace-nowrap"
               >
                 {isBusy ? '...' : nextActionLabelFor(order, next)}
               </button>
-            )}
+            ) : null}
 
             {order.status === 'accepted' && (
               <button
@@ -499,7 +508,6 @@ export const OrderRow: React.FC<OrderRowProps> = ({
                       <div className="pt-1 flex flex-wrap items-center gap-2">
                         <span className="text-[10px] font-mono bg-stone-200/80 text-stone-700 px-2 py-0.5 rounded-md">
                           📍 {order.delivery_lat.toFixed(6)}, {order.delivery_lon.toFixed(6)}
-                          {order.delivery_distance_km > 0 && ` (${order.delivery_distance_km.toFixed(1)} km)`}
                         </span>
                         <a
                           href={`https://www.google.com/maps?q=${order.delivery_lat},${order.delivery_lon}`}
@@ -540,11 +548,23 @@ export const OrderRow: React.FC<OrderRowProps> = ({
                     )}
 
                     {(order.driver_name || order.driver_phone || order.driver_plate) && (
-                      <p className="text-[11px] text-stone-800">
-                        Driver: <strong>{order.driver_name || '-'}</strong>
-                        {order.driver_plate ? ` · ${order.driver_plate}` : ''}
-                        {order.driver_phone ? ` · ${order.driver_phone}` : ''}
-                      </p>
+                      <div className="text-[11px] text-stone-800 flex flex-wrap items-center gap-1.5">
+                        <span>
+                          Driver: <strong>{order.driver_name || '-'}</strong>
+                          {order.driver_plate ? ` · ${order.driver_plate}` : ''}
+                        </span>
+                        {order.driver_phone && formatWhatsAppNumber(order.driver_phone) && (
+                          <a
+                            href={`https://wa.me/${formatWhatsAppNumber(order.driver_phone)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-emerald-700 hover:text-emerald-800 font-mono font-bold hover:underline"
+                          >
+                            <i className="fa-brands fa-whatsapp" aria-hidden="true" />
+                            <span>{order.driver_phone}</span>
+                          </a>
+                        )}
+                      </div>
                     )}
 
                     <div className="flex flex-wrap items-center gap-2 pt-0.5">
@@ -554,7 +574,9 @@ export const OrderRow: React.FC<OrderRowProps> = ({
                             type="button"
                             onClick={() => onDispatchCourier(order, 'gojek')}
                             disabled={isBusy}
-                            className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-[11px] font-bold"
+                            className={`px-2.5 py-1.5 rounded-lg disabled:opacity-50 text-white text-[11px] font-bold ${
+                              defaultCourier === 'gojek' ? 'bg-emerald-600 hover:bg-emerald-700 ring-2 ring-emerald-300' : 'bg-emerald-600/80 hover:bg-emerald-700'
+                            }`}
                           >
                             🛵 Panggil GoSend Instant
                           </button>
@@ -562,20 +584,12 @@ export const OrderRow: React.FC<OrderRowProps> = ({
                             type="button"
                             onClick={() => onDispatchCourier(order, 'grab')}
                             disabled={isBusy}
-                            className="px-2.5 py-1.5 rounded-lg bg-green-700 hover:bg-green-800 disabled:opacity-50 text-white text-[11px] font-bold"
+                            className={`px-2.5 py-1.5 rounded-lg disabled:opacity-50 text-white text-[11px] font-bold ${
+                              defaultCourier === 'grab' ? 'bg-green-700 hover:bg-green-800 ring-2 ring-green-300' : 'bg-green-700/80 hover:bg-green-800'
+                            }`}
                           >
                             🛵 Panggil GrabExpress Instant
                           </button>
-                          {order.status === 'accepted' && (
-                            <button
-                              type="button"
-                              onClick={() => onAdvanceStatus(order)}
-                              disabled={isBusy}
-                              className="px-2.5 py-1.5 rounded-lg bg-white hover:bg-stone-100 text-stone-700 border border-stone-300 text-[11px] font-semibold"
-                            >
-                              Tandai Diantar Manual
-                            </button>
-                          )}
                         </>
                       )}
                       {order.biteship_tracking_url && (
@@ -592,11 +606,6 @@ export const OrderRow: React.FC<OrderRowProps> = ({
                     </div>
                   </div>
                 )}
-                {order.order_type !== 'pickup' && order.status === 'completed' && !order.biteship_order_id && (
-                  <p className="rounded-lg border border-emerald-200 bg-emerald-50 p-2 text-[10px] font-semibold text-emerald-800">
-                    Pesanan sedang diantar. Pelanggan diarahkan untuk menghubungi WhatsApp outlet.
-                  </p>
-                )}
               </div>
 
               <div className="space-y-1.5">
@@ -609,7 +618,7 @@ export const OrderRow: React.FC<OrderRowProps> = ({
                 </div>
                 {order.order_type !== 'pickup' && (
                   <div className="flex justify-between text-stone-600">
-                    <span>Ongkir</span>
+                    <span>Ongkir{order.courier_name ? ` (${order.courier_name})` : ''}</span>
                     <span className="font-mono">{formatRupiah(order.delivery_fee)}</span>
                   </div>
                 )}

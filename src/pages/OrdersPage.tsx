@@ -10,8 +10,8 @@ import type { Order } from '../types'
 
 const STATUS_FILTERS: Array<{ id: string; label: string }> = [
   { id: 'all', label: 'Semua' },
-  { id: 'accepted', label: 'Belum diantar' },
-  { id: 'completed', label: 'Sedang diantar' },
+  { id: 'accepted', label: 'Belum Diproses' },
+  { id: 'completed', label: 'Diproses / Selesai' },
   { id: 'rejected', label: 'Ditolak' },
   { id: 'cancelled', label: 'Dibatalkan' },
   { id: 'refunded', label: 'Direfund' },
@@ -305,7 +305,7 @@ ${destAddr}`
               ? ` · ${TIME_FILTERS.find((t) => t.id === timeFilter)?.label}`
               : ''}
             {statusFilter !== 'all' ? ' (terfilter)' : ''}
-            {pendingCount > 0 && ` · ${pendingCount} belum diantar`}
+            {pendingCount > 0 && ` · ${pendingCount} perlu diproses`}
           </p>
         </div>
 
