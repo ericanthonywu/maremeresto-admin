@@ -284,7 +284,11 @@ export const OrderRow: React.FC<OrderRowProps> = ({
           {order.order_type !== 'pickup' && (
             <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
               {order.courier_name && (
-                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">
+                <span
+                  className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                    order.courier_type === 'cod' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
+                  }`}
+                >
                   {order.courier_name}
                 </span>
               )}
@@ -526,9 +530,19 @@ export const OrderRow: React.FC<OrderRowProps> = ({
                   </div>
                 )}
                 {order.order_type !== 'pickup' && (
-                  <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3 space-y-2">
+                  <div
+                    className={`rounded-xl border p-3 space-y-2 ${
+                      order.courier_type === 'cod'
+                        ? 'border-amber-200 bg-amber-50/70'
+                        : 'border-emerald-200 bg-emerald-50/60'
+                    }`}
+                  >
                     <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <span className="text-[11px] font-bold text-emerald-950">
+                      <span
+                        className={`text-[11px] font-bold ${
+                          order.courier_type === 'cod' ? 'text-amber-950' : 'text-emerald-950'
+                        }`}
+                      >
                         Kurir: {order.courier_name || 'GoSend Instant'}
                       </span>
                       {order.biteship_status && (
@@ -540,6 +554,11 @@ export const OrderRow: React.FC<OrderRowProps> = ({
                         </span>
                       )}
                     </div>
+                    {order.courier_type === 'cod' && (
+                      <p className="text-[11px] text-amber-900 leading-snug">
+                        Ongkir tidak ditagihkan di aplikasi — tetap ditanggung customer dan dibayarkan langsung ke kurir (COD).
+                      </p>
+                    )}
 
                     {order.biteship_waybill_id && (
                       <p className="text-[11px] font-mono text-stone-700">
@@ -617,9 +636,13 @@ export const OrderRow: React.FC<OrderRowProps> = ({
                   <span className="font-mono">{formatRupiah(order.subtotal)}</span>
                 </div>
                 {order.order_type !== 'pickup' && (
-                  <div className="flex justify-between text-stone-600">
+                  <div className="flex justify-between gap-2 text-stone-600">
                     <span>Ongkir{order.courier_name ? ` (${order.courier_name})` : ''}</span>
-                    <span className="font-mono">{formatRupiah(order.delivery_fee)}</span>
+                    {order.courier_type === 'cod' ? (
+                      <span className="font-bold text-amber-700 text-right">Ditanggung Customer (COD)</span>
+                    ) : (
+                      <span className="font-mono">{formatRupiah(order.delivery_fee)}</span>
+                    )}
                   </div>
                 )}
                 <div className="flex justify-between text-stone-600">
